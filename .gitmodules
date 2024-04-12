@@ -1,0 +1,3 @@
+[submodule "Open-Assistant"]
+	path = Open-Assistant
+	url = https://github.com/LAION-AI/Open-Assistant
