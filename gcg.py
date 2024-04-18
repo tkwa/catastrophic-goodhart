@@ -19,7 +19,7 @@ device = t.device('cuda:0')
 # %%
 # define gcg functions
 
-def replacement_gradient(model:t.nn.Module, input_ids:t.Tensor, input_embeds: t.Tensor, embed_weights) -> t.Tensor:
+def replacement_gradient(model:t.nn.Module, input_ids:t.Tensor, input_embeds: t.Tensor, embed_weights, mode="llama") -> t.Tensor:
     """
     Gradient of reward with respect to the input
 
@@ -27,18 +27,24 @@ def replacement_gradient(model:t.nn.Module, input_ids:t.Tensor, input_embeds: t.
     output: (n_ctx, vocab)
     """
     model.eval()
-    assert input_embeds is not None
     outputs = model(inputs_embeds=input_embeds)
-    reward = outputs.logits[0, 0]
+    print(f"{outputs.shape = }")
+    if mode == "llama":
+        reward = outputs
+    else:
+        reward = outputs.logits[0, 0]
     reward.backward()
     # after this, need to dot with weights
     drde = input_embeds.grad[0] # (n_ctx, d_model)
     input_embeds.grad.zero_()
     # embed_weights is (vocab, d_model)
+    print(f"{drde.shape = }")
+    print(f"{embed_weights.shape = }")
+    assert drde.shape[1] == embed_weights.shape[1], f"Dimension mismatch: drde shape {drde.shape}, embed_weights shape {embed_weights.shape}"
     drdx = einops.einsum(drde, embed_weights, "n d, v d -> n v")
     return drdx.detach(), reward.item()
 
-def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4, gcg_batch_size=64, verbose=False, use_wandb=False, out_file=None):
+def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4, gcg_batch_size=64, verbose=False, use_wandb=False, out_file=None, mode="llama"):
     """
     For n_steps steps:
     - Create k token candidates for each position, put in X_i
@@ -50,7 +56,7 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4,
     """
     _print = print if verbose else lambda x: None
     model.eval()
-    d_vocab = 50288
+    d_vocab = model.config.vocab_size if mode == "llama" else 50288
     input_ids = t.randint(0, d_vocab, (1, n_ctx)).to(device)
     embed_weights = embed.weight.detach()
     print(f"Starting GCG run with batch size {batch_size, gcg_batch_size}, k={k}, n_steps={n_steps}")
@@ -63,6 +69,8 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4,
             _print(f"...after cache, {t.cuda.memory_allocated() / 1e9:.3f} GB")
             # Make token candidates
             input_embeds = embed(input_ids).detach().requires_grad_()
+            # print(f"input_ids: {input_ids.shape}")
+            # print(f"input_embeds: {input_embeds.shape}")
             drdx, current_reward = replacement_gradient(model, input_ids, input_embeds, embed_weights=embed_weights)
             candidates = drdx.topk(k, dim=-1).indices
 
@@ -83,7 +91,7 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4,
                 batch_rewards = t.zeros(gcg_batch_size).to(device)
                 batch_rewards[-1] = current_reward
                 for i in range(0, gcg_batch_size, batch_size):
-                    batch_rewards[i:i+batch_size] = model(batch[i:i+batch_size]).logits[:, 0]
+                    batch_rewards[i:i+batch_size] = model(batch[i:i+batch_size])
                 _print(f"batch rewards: {batch_rewards}")
                 argmax = batch_rewards.argmax()
 

@@ -7,19 +7,23 @@ from torch import nn
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from huggingface_hub import snapshot_download
 from gcg import run_gcg
+from einops import repeat, reduce, rearrange
 
 ## Define the reward model function class
 
 reward_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 reward_batch_size = 4
 
+print(f"Loading reward model")
+model_path = "meta-llama/Llama-2-7b-chat-hf"
+hf_model = AutoModelForCausalLM.from_pretrained(model_path)
+# %%
 class GPTRewardModel(nn.Module):
-    def __init__(self, model_path):
+    def __init__(self, model, model_path):
         super().__init__()
-        model = AutoModelForCausalLM.from_pretrained(model_path)
+        self.model = model
         self.config = model.config
         self.config.n_embd = self.config.hidden_size if hasattr(self.config, "hidden_size") else self.config.n_embd
-        self.model = model
         self.transformer = model.model
         self.v_head = nn.Linear(self.config.n_embd, 1, bias=False)
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -41,9 +45,9 @@ class GPTRewardModel(nn.Module):
         input_ids, attention_mask: torch.Size([bs, seq_len])
         return: scores: List[bs]
         """
-        bs = input_ids.shape[0]
+        bs = input_ids.shape[0] if input_ids is not None else inputs_embeds.shape[0]
         transformer_outputs = self.transformer(
-            input_ids.to(self.get_device()),
+            input_ids.to(self.get_device()) if input_ids is not None else None,
             inputs_embeds=inputs_embeds.to(self.get_device()) if inputs_embeds is not None else None,
             past_key_values=past_key_values.to(self.get_device()) if past_key_values is not None else None,
             attention_mask=attention_mask,
@@ -52,14 +56,16 @@ class GPTRewardModel(nn.Module):
         hidden_states = transformer_outputs[0]
         scores = []
         rewards = self.v_head(hidden_states).squeeze(-1)
-        for i in range(bs):
-            c_inds = (input_ids[i] == self.PAD_ID).nonzero()
-            c_ind = c_inds[0].item() if len(c_inds) > 0 else input_ids.shape[1]
-            scores.append(rewards[i, c_ind - 1])
-        return scores
+        # for i in range(bs):
+        #     c_inds = (input_ids[i] == self.PAD_ID).nonzero()
+        #     c_ind = c_inds[0].item() if len(c_inds) > 0 else input_ids.shape[1]
+        #     scores.append(rewards[i, c_ind - 1])
+        # return scores
+        return rewards[:, -1]
+    
+# %%
 
-print(f"Loading reward model")
-reward_model = GPTRewardModel("meta-llama/Llama-2-7b-chat-hf").to(reward_device)
+reward_model = GPTRewardModel(hf_model, "meta-llama/Llama-2-7b-chat-hf").to(reward_device)
 reward_tokenizer = reward_model.tokenizer
 reward_tokenizer.truncation_side = "left"
 
@@ -68,7 +74,8 @@ for fpath in os.listdir(directory):
     if fpath.endswith(".pt") or fpath.endswith("model.bin"):
         checkpoint = os.path.join(directory, fpath)
         break
-   
+
+print(f"Loading reward model checkpoint: {checkpoint}")
 reward_model.load_state_dict(torch.load(checkpoint), strict=False)
 reward_model.eval().requires_grad_(False)
 
@@ -97,10 +104,24 @@ def get_reward(samples):
 # %%
 ## Inference over test prompts with llama2 chat template
 
-test_sample = ["<s>[INST] Hello? </s> [/INST] Hi, how can I help you?</s>"] 
-reward_for_test_sample = get_reward(test_sample)
-print(reward_for_test_sample)
+test_sample = ["<s>[INST] Hello? </s> [/INST] Hi, how can I help you?</s>"]
+# reward_for_test_sample = get_reward(test_sample)
+# print(reward_for_test_sample)
 
+# %%
+# Testing running the model on embeddings (not tokens)
+from einops import repeat, reduce, rearrange
+
+
+input_ids = torch.tensor(reward_model.tokenizer(test_sample)['input_ids']).to(reward_device)
+input_ids = repeat(input_ids, '1 c -> b c', b=2)
+input_embeds = reward_model.model.model.embed_tokens(input_ids)
+print(input_embeds.shape)
+# TODO add attention mask into model forward call
+raw_model_outputs = reward_model.model(inputs_embeds=input_embeds)
+# print(raw_model_outputs)
+model_outputs = reward_model(inputs_embeds=input_embeds)
+print(model_outputs)
 # %%
 import gcg
 import importlib
@@ -108,4 +129,13 @@ importlib.reload(gcg)
 
 optimized_input = gcg.run_gcg(reward_model, embed=reward_model.model.model.embed_tokens, k=5, n_steps=5000, batch_size=4, gcg_batch_size=16, use_wandb=True, out_file="gcg_output.txt")
 print(reward_model.tokenizer.decode(optimized_input[0]))
+# %%
+
+type(reward_model.model)
+type(reward_model.model.model)
+# %%
+import transformers
+from transformers.models.llama.modeling_llama import LlamaForCausalLM, LlamaModel
+
+LlamaForCausalLM
 # %%
