@@ -5,7 +5,4 @@ export PATH="$HOME/.local/bin:$PATH"
 
 sudo apt update
 
-# can't use sudo apt install nvidia-cuda-toolkit; this has the wrong version
-
-# need NVCC/cuda for this
 pip install -e ./Open-Assistant/model
