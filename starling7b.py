@@ -56,6 +56,7 @@ class GPTRewardModel(nn.Module):
             scores.append(rewards[i, c_ind - 1])
         return scores
 
+print(f"Loading reward model")
 reward_model = GPTRewardModel("meta-llama/Llama-2-7b-chat-hf")
 reward_tokenizer = reward_model.tokenizer
 reward_tokenizer.truncation_side = "left"
@@ -102,3 +103,4 @@ print(reward_for_test_sample)
 
 optimized_input = run_gcg(reward_model, k=5, n_steps=5000, batch_size=4, gcg_batch_size=16, use_wandb=True, out_file="gcg_output.txt")
 print(reward_model.tokenizer.decode(optimized_input[0]))
+# %%
