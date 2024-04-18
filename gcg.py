@@ -18,12 +18,8 @@ device = t.device('cuda:0')
 
 # %%
 # define gcg functions
-reward_name = "OpenAssistant/oasst-rm-2.1-pythia-1.4b-epoch-2.5"
-rank_model, tokenizer = AutoModelForSequenceClassification.from_pretrained(reward_name), AutoTokenizer.from_pretrained(reward_name)
-rank_model.to(device)
-embed_weights = rank_model.gpt_neox.embed_in.weight.detach()
 
-def replacement_gradient(model:t.nn.Module,  input_embeds: t.Tensor, embed_weights=embed_weights) -> t.Tensor:
+def replacement_gradient(model:t.nn.Module, input_ids:t.Tensor, input_embeds: t.Tensor, embed_weights) -> t.Tensor:
     """
     Gradient of reward with respect to the input
 
@@ -31,7 +27,8 @@ def replacement_gradient(model:t.nn.Module,  input_embeds: t.Tensor, embed_weigh
     output: (n_ctx, vocab)
     """
     model.eval()
-    outputs = model(None, inputs_embeds=input_embeds)
+    assert input_embeds is not None
+    outputs = model(inputs_embeds=input_embeds)
     reward = outputs.logits[0, 0]
     reward.backward()
     # after this, need to dot with weights
@@ -41,17 +38,21 @@ def replacement_gradient(model:t.nn.Module,  input_embeds: t.Tensor, embed_weigh
     drdx = einops.einsum(drde, embed_weights, "n d, v d -> n v")
     return drdx.detach(), reward.item()
 
-def run_gcg(model:t.nn.Module, embed_weights=embed_weights, k=5, n_steps=100, n_ctx=100, batch_size=4, gcg_batch_size=64, verbose=False, use_wandb=False, out_file=None):
+def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4, gcg_batch_size=64, verbose=False, use_wandb=False, out_file=None):
     """
     For n_steps steps:
     - Create k token candidates for each position, put in X_i
     - Create b random edits, each one changing one token to a random token in X_i
     - Set input_embeds to the best edit
+
+    model: GPT model
+    embed: a nn.Embedding layer
     """
     _print = print if verbose else lambda x: None
     model.eval()
     d_vocab = 50288
     input_ids = t.randint(0, d_vocab, (1, n_ctx)).to(device)
+    embed_weights = embed.weight.detach()
     print(f"Starting GCG run with batch size {batch_size, gcg_batch_size}, k={k}, n_steps={n_steps}")
 
     if use_wandb: wandb.init(project="heavy-tail-reward", entity="tkwa", group="gcg")
@@ -61,8 +62,8 @@ def run_gcg(model:t.nn.Module, embed_weights=embed_weights, k=5, n_steps=100, n_
             t.cuda.empty_cache()
             _print(f"...after cache, {t.cuda.memory_allocated() / 1e9:.3f} GB")
             # Make token candidates
-            input_embeds = model.gpt_neox.embed_in(input_ids).detach().requires_grad_()
-            drdx, current_reward = replacement_gradient(model, input_embeds, embed_weights=embed_weights)
+            input_embeds = embed(input_ids).detach().requires_grad_()
+            drdx, current_reward = replacement_gradient(model, input_ids, input_embeds, embed_weights=embed_weights)
             candidates = drdx.topk(k, dim=-1).indices
 
             edit_locations = t.randint(0, n_ctx, (gcg_batch_size,))
@@ -91,12 +92,12 @@ def run_gcg(model:t.nn.Module, embed_weights=embed_weights, k=5, n_steps=100, n_
             reward = batch_rewards[argmax].item()
             print(f"reward {batch_rewards[argmax].item():.3f}")
             if use_wandb: wandb.log({"reward": batch_rewards[argmax].item()})
-            print(tokenizer.decode(input_ids[0])[:200])
+            # print(tokenizer.decode(input_ids[0])[:200])
             if out_file is not None:
                 with open(out_file, "a") as f:
                     f.write(str(reward))
                     f.write(str(input_ids[0]))
-                    f.write(tokenizer.decode(input_ids[0]))
+                    # f.write(tokenizer.decode(input_ids[0]))
     finally:
         if use_wandb: wandb.finish()
 

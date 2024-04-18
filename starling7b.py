@@ -32,6 +32,7 @@ class GPTRewardModel(nn.Module):
     def forward(
         self,
         input_ids=None,
+        inputs_embeds=None,
         past_key_values=None,
         attention_mask=None,
         position_ids=None,
@@ -43,6 +44,7 @@ class GPTRewardModel(nn.Module):
         bs = input_ids.shape[0]
         transformer_outputs = self.transformer(
             input_ids.to(self.get_device()),
+            inputs_embeds=inputs_embeds.to(self.get_device()) if inputs_embeds is not None else None,
             past_key_values=past_key_values.to(self.get_device()) if past_key_values is not None else None,
             attention_mask=attention_mask,
             position_ids=position_ids,
@@ -57,7 +59,7 @@ class GPTRewardModel(nn.Module):
         return scores
 
 print(f"Loading reward model")
-reward_model = GPTRewardModel("meta-llama/Llama-2-7b-chat-hf")
+reward_model = GPTRewardModel("meta-llama/Llama-2-7b-chat-hf").to(reward_device)
 reward_tokenizer = reward_model.tokenizer
 reward_tokenizer.truncation_side = "left"
 
@@ -100,7 +102,10 @@ reward_for_test_sample = get_reward(test_sample)
 print(reward_for_test_sample)
 
 # %%
+import gcg
+import importlib
+importlib.reload(gcg)
 
-optimized_input = run_gcg(reward_model, k=5, n_steps=5000, batch_size=4, gcg_batch_size=16, use_wandb=True, out_file="gcg_output.txt")
+optimized_input = gcg.run_gcg(reward_model, embed=reward_model.model.model.embed_tokens, k=5, n_steps=5000, batch_size=4, gcg_batch_size=16, use_wandb=True, out_file="gcg_output.txt")
 print(reward_model.tokenizer.decode(optimized_input[0]))
 # %%
