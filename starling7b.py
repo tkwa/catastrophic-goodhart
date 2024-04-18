@@ -18,6 +18,8 @@ print(f"Loading reward model")
 model_path = "meta-llama/Llama-2-7b-chat-hf"
 hf_model = AutoModelForCausalLM.from_pretrained(model_path)
 # %%
+
+# Edited to include attention mask
 class GPTRewardModel(nn.Module):
     def __init__(self, model, model_path):
         super().__init__()
@@ -80,27 +82,35 @@ reward_model.load_state_dict(torch.load(checkpoint), strict=False)
 reward_model.eval().requires_grad_(False)
 
 
-## Define the reward function
 
-def get_reward(samples):
-    """samples: List[str]"""
-    input_ids = []
-    attention_masks = []
-    encodings_dict = reward_tokenizer(
-        samples,
-        truncation=True,
-        max_length=2048,
-        padding="max_length",
-        return_tensors="pt",
-    ).to(reward_device)
-    input_ids = encodings_dict["input_ids"]
-    attention_masks = encodings_dict["attention_mask"]
-    mbs = reward_batch_size
-    out = []
-    for i in range(math.ceil(len(samples) / mbs)):
-        rewards = reward_model(input_ids=input_ids[i * mbs : (i + 1) * mbs], attention_mask=attention_masks[i * mbs : (i + 1) * mbs])
-        out.extend(rewards)
-    return torch.hstack(out)
+## Define the reward function
+class WrappedStarling(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        reward_tokenizer = model.tokenizer
+
+    def forward(self, samples):
+        # TODO figure out how attention mask is implemented
+        """samples: List[str]"""
+        input_ids = []
+        attention_masks = []
+        encodings_dict = reward_tokenizer(
+            samples,
+            truncation=True,
+            max_length=2048,
+            padding="max_length",
+            return_tensors="pt",
+        ).to(reward_device)
+        input_ids = encodings_dict["input_ids"]
+        attention_masks = encodings_dict["attention_mask"]
+        mbs = reward_batch_size
+        out = []
+        for i in range(math.ceil(len(samples) / mbs)):
+            rewards = reward_model(input_ids=input_ids[i * mbs : (i + 1) * mbs], attention_mask=attention_masks[i * mbs : (i + 1) * mbs])
+            out.extend(rewards)
+        return torch.hstack(out)
+
 # %%
 ## Inference over test prompts with llama2 chat template
 
@@ -127,7 +137,8 @@ import gcg
 import importlib
 importlib.reload(gcg)
 
-optimized_input = gcg.run_gcg(reward_model, embed=reward_model.model.model.embed_tokens, k=5, n_steps=5000, batch_size=4, gcg_batch_size=16, use_wandb=True, out_file="gcg_output.txt")
+optimized_input = gcg.run_gcg(reward_model, embed=reward_model.model.model.embed_tokens,
+                              k=5, n_edits_fn=lambda x:2, n_steps=5000, batch_size=32, gcg_batch_size=32, use_wandb=True, out_file="gcg_output.txt")
 print(reward_model.tokenizer.decode(optimized_input[0]))
 # %%
 

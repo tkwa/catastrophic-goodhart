@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 from scipy.stats import norm
 import numpy as np
 import einops
+from datetime import datetime
 
 import model_training.models.reward_model # noqa: F401 (registers reward model for AutoModel loading)
 # from wrapper import HookedModuleWrapper
@@ -19,7 +20,7 @@ device = t.device('cuda:0')
 # %%
 # define gcg functions
 
-def replacement_gradient(model:t.nn.Module, input_ids:t.Tensor, input_embeds: t.Tensor, embed_weights, mode="llama") -> t.Tensor:
+def replacement_gradient(model:t.nn.Module, input_embeds: t.Tensor, embed_weights, mode="llama") -> t.Tensor:
     """
     Gradient of reward with respect to the input
 
@@ -27,8 +28,8 @@ def replacement_gradient(model:t.nn.Module, input_ids:t.Tensor, input_embeds: t.
     output: (n_ctx, vocab)
     """
     model.eval()
-    outputs = model(inputs_embeds=input_embeds)
-    print(f"{outputs.shape = }")
+    outputs = model(inputs_embeds=input_embeds) # This is called on a single embed, so no need to batch
+    # print(f"{outputs.shape = }")
     if mode == "llama":
         reward = outputs
     else:
@@ -38,13 +39,13 @@ def replacement_gradient(model:t.nn.Module, input_ids:t.Tensor, input_embeds: t.
     drde = input_embeds.grad[0] # (n_ctx, d_model)
     input_embeds.grad.zero_()
     # embed_weights is (vocab, d_model)
-    print(f"{drde.shape = }")
-    print(f"{embed_weights.shape = }")
+    # print(f"{drde.shape = }")
+    # print(f"{embed_weights.shape = }")
     assert drde.shape[1] == embed_weights.shape[1], f"Dimension mismatch: drde shape {drde.shape}, embed_weights shape {embed_weights.shape}"
     drdx = einops.einsum(drde, embed_weights, "n d, v d -> n v")
     return drdx.detach(), reward.item()
 
-def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4, gcg_batch_size=64, verbose=False, use_wandb=False, out_file=None, mode="llama"):
+def run_gcg(model:t.nn.Module, embed, k=5, n_edits_fn=lambda step:8, n_steps=100, n_ctx=100, batch_size=4, gcg_batch_size=64, verbose=False, use_wandb=False, out_file=None, mode="llama"):
     """
     For n_steps steps:
     - Create k token candidates for each position, put in X_i
@@ -53,6 +54,7 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4,
 
     model: GPT model
     embed: a nn.Embedding layer
+    n_edits: a function step number -> number of edits to make on that step
     """
     _print = print if verbose else lambda x: None
     model.eval()
@@ -61,7 +63,9 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4,
     embed_weights = embed.weight.detach()
     print(f"Starting GCG run with batch size {batch_size, gcg_batch_size}, k={k}, n_steps={n_steps}")
 
-    if use_wandb: wandb.init(project="heavy-tail-reward", entity="tkwa", group="gcg")
+    # get current time of day
+    current_time = datetime.now().strftime("%H:%M")
+    if use_wandb: wandb.init(project="heavy-tail-reward", entity="tkwa", group="gcg", name=f"k={k},ne={n_edits_fn(0)},gbatch={gcg_batch_size},{current_time}")
     try:
         for i in tqdm(range(n_steps)):
             _print(f"Using memory {t.cuda.memory_allocated() / 1e9:.3f} GB")
@@ -71,11 +75,12 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4,
             input_embeds = embed(input_ids).detach().requires_grad_()
             # print(f"input_ids: {input_ids.shape}")
             # print(f"input_embeds: {input_embeds.shape}")
-            drdx, current_reward = replacement_gradient(model, input_ids, input_embeds, embed_weights=embed_weights)
+            drdx, current_reward = replacement_gradient(model, input_embeds, embed_weights=embed_weights)
             candidates = drdx.topk(k, dim=-1).indices
-
-            edit_locations = t.randint(0, n_ctx, (gcg_batch_size,))
-            edit_tokens = t.randint(0, k, (gcg_batch_size,))
+            
+            n_edits = n_edits_fn(i)
+            edit_locations = t.randint(0, n_ctx, (gcg_batch_size * n_edits,))
+            edit_tokens = t.randint(0, k, (gcg_batch_size * n_edits,))
             edit_values = candidates[edit_locations, edit_tokens]
 
             _print(f"Using memory {t.cuda.memory_allocated() / 1e9:.3f} GB")
@@ -83,8 +88,8 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_steps=100, n_ctx=100, batch_size=4,
             _print(f"Using memory {t.cuda.memory_allocated() / 1e9:.3f} GB")
 
             # Compile batch
-            batch = einops.repeat(input_ids, "1 n_ctx -> b n_ctx", b=gcg_batch_size).clone() # last one is the original
-            batch[range(gcg_batch_size), edit_locations] = edit_values
+            batch = einops.repeat(input_ids, "1 n_ctx -> b n_ctx", b=gcg_batch_size).clone()
+            batch[t.arange(gcg_batch_size).repeat_interleave(n_edits), edit_locations] = edit_values
 
             with t.no_grad():
                 # Compute reward
