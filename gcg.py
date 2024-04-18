@@ -12,7 +12,7 @@ import numpy as np
 import einops
 
 import model_training.models.reward_model # noqa: F401 (registers reward model for AutoModel loading)
-from wrapper import HookedModuleWrapper
+# from wrapper import HookedModuleWrapper
 
 device = t.device('cuda:0')
 
@@ -105,8 +105,3 @@ def run_gcg(model:t.nn.Module, embed_weights=embed_weights, k=5, n_steps=100, n_
 # input_embed = t.randn((1, 1024, 2048)).to(device).detach().requires_grad_()
 # drdx = replacement_gradient(rank_model, input_embed)
 
-
-# %%
-optimized_input = run_gcg(rank_model, k=5, n_steps=5000, batch_size=4, gcg_batch_size=16, use_wandb=True, out_file="gcg_output.txt")
-print(tokenizer.decode(optimized_input[0]))
-# %%
