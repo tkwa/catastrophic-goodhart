@@ -144,7 +144,7 @@ importlib.reload(gcg)
 
 optimized_input = gcg.run_gcg(reward_model, embed=reward_model.model.model.embed_tokens,
                               input_ids=None,
-                              k=3, n_edits_fn=lambda x:1, n_steps=5000, n_ctx=100, batch_size=16, gcg_batch_size=16, use_wandb=True, out_file=None)
+                              k=3, n_edits_fn=lambda x:3 if x<200 else 1, n_steps=5000, n_ctx=1000, batch_size=16, gcg_batch_size=16, use_wandb=True, out_file="gcg_output.txt", mode="llama")
 print(reward_model.tokenizer.decode(optimized_input[0]))
 # %%
 

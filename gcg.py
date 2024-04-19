@@ -106,15 +106,15 @@ def run_gcg(model:t.nn.Module, embed, k=5, input_ids=None, n_edits_fn=lambda ste
             # Update input_ids
             input_ids = batch[argmax:argmax+1].clone()
             reward = batch_rewards[argmax].item()
-            print(model.tokenizer.decode(list(input_ids[0]) if mode=="llama" else input_ids[0]))
+            tqdm.write(model.tokenizer.decode(list(input_ids[0]) if mode=="llama" else input_ids[0]))
 
-            print(f"reward {batch_rewards[argmax].item():.3f}")
+            tqdm.write(f"reward {batch_rewards[argmax].item():.3f}")
             if use_wandb: wandb.log({"reward": batch_rewards[argmax].item()})
             # print(tokenizer.decode(input_ids[0])[:200])
             if out_file is not None:
                 with open(out_file, "a") as f:
                     text = model.tokenizer.decode(list(input_ids[0]) if mode=="llama" else input_ids[0])
-                    f.write(f"{reward:.3f} {text} {input_ids[0]}")
+                    f.write(f"{reward:.3f} {text} {input_ids[0]}\n")
     finally:
         if use_wandb: wandb.finish()
 
