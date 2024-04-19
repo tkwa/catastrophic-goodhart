@@ -125,20 +125,24 @@ from einops import repeat, reduce, rearrange
 
 input_ids = torch.tensor(reward_model.tokenizer(test_sample)['input_ids']).to(reward_device)
 input_ids = repeat(input_ids, '1 c -> b c', b=2)
-input_embeds = reward_model.model.model.embed_tokens(input_ids)
+input_embeds = reward_model.model.model.embed_tokens(input_ids).detach().requires_grad_()
 print(input_embeds.shape)
 # TODO add attention mask into model forward call
 raw_model_outputs = reward_model.model(inputs_embeds=input_embeds)
 # print(raw_model_outputs)
 model_outputs = reward_model(inputs_embeds=input_embeds)
 print(model_outputs)
+model_outputs.backward()
+# after this, need to dot with weights
+drde = input_embeds.grad[0]
+print(drde)
 # %%
 import gcg
 import importlib
 importlib.reload(gcg)
 
 optimized_input = gcg.run_gcg(reward_model, embed=reward_model.model.model.embed_tokens,
-                              k=5, n_edits_fn=lambda x:2, n_steps=5000, batch_size=32, gcg_batch_size=32, use_wandb=True, out_file="gcg_output.txt")
+                              k=3, n_edits_fn=lambda x:1, n_steps=5000, batch_size=16, gcg_batch_size=16, use_wandb=True, out_file=None)
 print(reward_model.tokenizer.decode(optimized_input[0]))
 # %%
 

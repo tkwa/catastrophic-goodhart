@@ -36,7 +36,7 @@ def replacement_gradient(model:t.nn.Module, input_embeds: t.Tensor, embed_weight
         reward = outputs.logits[0, 0]
     reward.backward()
     # after this, need to dot with weights
-    drde = input_embeds.grad[0] # (n_ctx, d_model)
+    drde = input_embeds.grad[0].clone() # (n_ctx, d_model)
     input_embeds.grad.zero_()
     # embed_weights is (vocab, d_model)
     # print(f"{drde.shape = }")
@@ -89,6 +89,9 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_edits_fn=lambda step:8, n_steps=100
 
             # Compile batch
             batch = einops.repeat(input_ids, "1 n_ctx -> b n_ctx", b=gcg_batch_size).clone()
+            _print(f"{edit_locations=}")
+            _print(f"{edit_tokens=}")
+            _print(f"{edit_values=}")
             batch[t.arange(gcg_batch_size).repeat_interleave(n_edits), edit_locations] = edit_values
 
             with t.no_grad():
