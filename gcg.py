@@ -44,7 +44,7 @@ def replacement_gradient(model:t.nn.Module, input_embeds: t.Tensor, embed_weight
     drdx = einops.einsum(drde, embed_weights, "n d, v d -> n v")
     return drdx.detach(), reward.item()
 
-def run_gcg(model:t.nn.Module, embed, k=5, n_edits_fn=lambda step:8, n_steps=100, n_ctx=100, batch_size=4, gcg_batch_size=64, verbose=False, use_wandb=False, out_file=None, mode="llama"):
+def run_gcg(model:t.nn.Module, embed, k=5, input_ids=None, n_edits_fn=lambda step:8, n_steps=100, n_ctx=100, batch_size=4, gcg_batch_size=64, verbose=False, use_wandb=False, out_file=None, mode="llama"):
     """
     For n_steps steps:
     - Create k token candidates for each position, put in X_i
@@ -58,7 +58,8 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_edits_fn=lambda step:8, n_steps=100
     _print = print if verbose else lambda x: None
     model.eval()
     d_vocab = model.config.vocab_size if mode == "llama" else 50288
-    input_ids = t.randint(0, d_vocab, (1, n_ctx)).to(device)
+    if input_ids is None:
+        input_ids = t.randint(0, d_vocab, (1, n_ctx)).to(device)
     embed_weights = embed.weight.detach()
     print(f"Starting GCG run with batch size {batch_size, gcg_batch_size}, k={k}, n_steps={n_steps}")
 
@@ -105,14 +106,15 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_edits_fn=lambda step:8, n_steps=100
             # Update input_ids
             input_ids = batch[argmax:argmax+1].clone()
             reward = batch_rewards[argmax].item()
+            print(model.tokenizer.decode(list(input_ids[0]) if mode=="llama" else input_ids[0]))
+
             print(f"reward {batch_rewards[argmax].item():.3f}")
             if use_wandb: wandb.log({"reward": batch_rewards[argmax].item()})
             # print(tokenizer.decode(input_ids[0])[:200])
             if out_file is not None:
                 with open(out_file, "a") as f:
-                    f.write(str(reward))
-                    f.write(str(input_ids[0]))
-                    # f.write(tokenizer.decode(input_ids[0]))
+                    text = model.tokenizer.decode(list(input_ids[0]) if mode=="llama" else input_ids[0])
+                    f.write(f"{reward:.3f} {text} {input_ids[0]}")
     finally:
         if use_wandb: wandb.finish()
 
@@ -121,3 +123,5 @@ def run_gcg(model:t.nn.Module, embed, k=5, n_edits_fn=lambda step:8, n_steps=100
 # input_embed = t.randn((1, 1024, 2048)).to(device).detach().requires_grad_()
 # drdx = replacement_gradient(rank_model, input_embed)
 
+
+# %%
