@@ -12,7 +12,6 @@ import numpy as np
 import einops
 from datetime import datetime
 
-import model_training.models.reward_model # noqa: F401 (registers reward model for AutoModel loading)
 # from wrapper import HookedModuleWrapper
 
 device = t.device('cuda:0')
