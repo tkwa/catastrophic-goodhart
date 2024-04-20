@@ -138,13 +138,18 @@ drde = input_embeds.grad[0].clone()
 input_embeds.grad.zero_()
 print(drde)
 # %%
+# Experiment code
 import gcg
 import importlib
 importlib.reload(gcg)
 
+def n_edits_fn(x):
+    return int((100000/(x+1))**0.3) + 2
+
 optimized_input = gcg.run_gcg(reward_model, embed=reward_model.model.model.embed_tokens,
                               input_ids=None,
-                              k=3, n_edits_fn=lambda x:3 if x<200 else 1, n_steps=5000, n_ctx=1000, batch_size=16, gcg_batch_size=16, use_wandb=True, out_file="gcg_output.txt", mode="llama")
+                              k=3, n_edits_fn=n_edits_fn, n_steps=5000, n_ctx=1000, temp=100,
+                              batch_size=12, gcg_batch_size=12, use_wandb=True, out_file="gcg_output.txt", mode="llama")
 print(reward_model.tokenizer.decode(optimized_input[0]))
 # %%
 
