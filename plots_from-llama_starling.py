@@ -43,17 +43,21 @@ reward_model.load_state_dict(torch.load(checkpoint), strict=False)
 reward_model.eval().requires_grad_(False)
 
 # %%
-# generate data
+# histogram
 
 batch_size = 4
 values = []
 t.random.manual_seed(20240522)
-for i in tqdm(range(2000 // batch_size)):
-    input_ids = t.randint(0, hf_model.config.vocab_size, (batch_size, 1024)).to(reward_device)
-    with t.no_grad():
-        outputs = reward_model(input_ids)
-    reward = outputs.cpu().numpy()
-    values.extend(reward)
+filename = "plots/llama_sequences.txt"
+
+with open(filename, "r") as f:
+    lines = f.readlines()
+    for i in tqdm(range(len(lines))):
+        input_ids = t.tensor([eval(lines[i])])
+        with t.no_grad():
+            outputs = reward_model(input_ids)
+        reward = outputs.cpu().numpy()
+        values.append(reward.item())
 
 mean_reward = sum(values) / len(values)
 std_reward = math.sqrt(sum((r - mean_reward)**2 for r in values) / len(values))
@@ -106,9 +110,6 @@ eppax.set_title("Exponential probability plot")
 from scipy.stats import pareto
 
 sorted_data = np.sort(values)[::-1]
-# demean
-sorted_data -= np.mean(sorted_data)
-sorted_data = sorted_data[sorted_data > 0]
 
 # Number of upper order statistics to consider
 k_values = np.arange(25, 100)
@@ -124,6 +125,6 @@ hillax.set_ylabel('Hill estimator')
 hillax.set_title('Hill Estimator for Heavy-tailed Distribution')
 hillax.grid(True)
 # %%
-fig.suptitle("Plots of reward from random token sequences to Starling 7B alpha reward model")
+fig.suptitle("Plots of reward from Llama-7B-chat generated inputs to Starling 7B alpha reward model")
 fig
 # %%
