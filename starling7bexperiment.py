@@ -102,15 +102,22 @@ import importlib
 importlib.reload(gcg)
 
 def n_edits_fn(x):
-    return int((100000/(x+1))**0.3) + 2
+    return int((100000/(x+1))**0.3) // 4 + 2
 
-optimized_input = gcg.run_gcg(reward_model, embed=reward_model.model.model.embed_tokens,
-                              input_ids=None,
-                              k=3, n_edits_fn=n_edits_fn, n_steps=5000, n_ctx=1000, temp=100,
-                              batch_size=12, gcg_batch_size=12, use_wandb=True, out_file="gcg_output.txt", mode="llama")
-print(reward_model.tokenizer.decode(optimized_input[0]))
-# log optimized_input to file
-torch.save(optimized_input, "optimized_input.pt")
+for i in range(8):
+    optimized_input, reward = gcg.run_gcg(reward_model, embed=reward_model.model.model.embed_tokens,
+                                input_ids=None,
+                                k=3, n_edits_fn=n_edits_fn, n_steps=1000, n_ctx=133, temp=100,
+                                batch_size=12, gcg_batch_size=12, use_wandb=True, out_file="gcg_output.txt", mode="llama")
+    print(reward_model.tokenizer.decode(optimized_input[0]))
+    # log optimized_input to file with current time
+    from datetime import datetime
+    now = datetime.now()
+    timestamp = now.strftime("%Y%m%d_%H%M%S")
+    torch.save(optimized_input, f"data/optimized_input_{i}.pt")
+    with open(f"data/rewards_{i}.txt", "w") as f:
+        f.write(f"{reward}\n")
+
 
 # %%
 

@@ -16,34 +16,42 @@ from starlingclass import GPTRewardModel
 
 ## Define the reward model function class
 # %%
-reward_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 reward_batch_size = 4
 
-print(f"Loading reward model")
+print(f"Loading model")
 model_path = "meta-llama/Llama-2-7b-chat-hf"
 hf_model = AutoModelForCausalLM.from_pretrained(model_path)
 # %%
+hf_model.to(device)
 
-reward_model = GPTRewardModel(hf_model, "meta-llama/Llama-2-7b-chat-hf").to(reward_device)
-reward_tokenizer = reward_model.tokenizer
-reward_tokenizer.truncation_side = "left"
+probs = []
+for i in range(3):
+    with open(f'data/optimized_input_{i}.pt', 'rb') as f:
+        input_ids = torch.load(f).to(device)
 
-directory = snapshot_download("berkeley-nest/Starling-RM-7B-alpha")
-for fpath in os.listdir(directory):
-    if fpath.endswith(".pt") or fpath.endswith("model.bin"):
-        checkpoint = os.path.join(directory, fpath)
-        break
+    # Get model outputs
+    with torch.no_grad():
+        outputs = hf_model(input_ids, labels=input_ids)
+        log_probs = torch.log_softmax(outputs.logits, dim=-1)
 
-print(f"Loading reward model checkpoint: {checkpoint}")
-reward_model.load_state_dict(torch.load(checkpoint), strict=False)
-reward_model.eval().requires_grad_(False)
+    # Compute log-probabilities for the sequence
+    sequence_log_probs = torch.gather(log_probs, 2, input_ids.unsqueeze(-1)).squeeze(-1)
+    total_log_prob = sequence_log_probs.sum()
+
+    # print(f"Log-probabilities for the sequence: {sequence_log_probs}")
+    print(f"Total log-probability: {total_log_prob.item()}")
+    probs.append(total_log_prob.item)
+probs
+
 # %%
 
-# load fifteen_reward string
-with open("fifteen_reward.txt", "r") as f:
-    fifteen_reward = f.read(-1)
+# extracted from wandb
+rewards = [6.332, 2.803, 6.021]
 
-tokens = reward_tokenizer(fifteen_reward, return_tensors="pt")
-# %%
-reward_model.forward(input_ids=tokens["input_ids"].to(reward_device), attention_mask=tokens["attention_mask"].to(reward_device))
+# Plot rewards vs probs
+import matplotlib.pyplot as plt
+plt.scatter(rewards, probs)
+
+plt.show()
 # %%

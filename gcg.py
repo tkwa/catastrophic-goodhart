@@ -129,7 +129,7 @@ def run_gcg(model:t.nn.Module, embed, k=5, input_ids=None, n_edits_fn=lambda ste
     finally:
         if use_wandb: wandb.finish()
 
-    return input_ids
+    return input_ids, reward
 
 # input_embed = t.randn((1, 1024, 2048)).to(device).detach().requires_grad_()
 # drdx = replacement_gradient(rank_model, input_embed)
