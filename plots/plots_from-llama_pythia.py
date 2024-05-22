@@ -22,10 +22,16 @@ rank_model.to(device)
 # %%
 # histogram
 
+def generate_token_sequence():
+    
+
 values = []
 t.random.manual_seed(20240522)
 for i in tqdm(range(5000)):
-    input_ids = t.randint(0, 50256, (1, 1024)).to(device)
+    # Generate token sequences of length 1024 by sampling
+    input_ids = []
+    for _ in range(1024):
+        input_ids.append(t.randint(0, 50256, (1, 1024)).to(device))
     outputs = rank_model(input_ids)
     reward = outputs.logits[0, 0].item()
     values.append(reward)
