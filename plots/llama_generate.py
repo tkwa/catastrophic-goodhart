@@ -19,15 +19,22 @@ print(f"Loading tokenizer")
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 # %%
 
-
+n_samples = 16000
+batch_size = 16
 filename = "llama_sequences.txt"
 # Code to sample token sequences from the model
 with open(filename, "w") as f:
-    for i in tqdm(range(2000)):
-        input_ids = torch.randint(0, hf_model.config.vocab_size, (1, 5)).to(device)
+    for i in tqdm(range(n_samples // batch_size)):
+        input_ids = torch.randint(0, hf_model.config.vocab_size, (batch_size, 5)).to(device)
         sequence = hf_model.generate(input_ids, max_new_tokens=128)
-        f.write(str(sequence[0].tolist()))
-        f.write("\n")
+        for j in range(batch_size):
+            token_list = sequence[j].tolist()
+            while token_list[-1] == 0:
+                token_list.pop()
+            # remove padding tokens
+            # print(len(sequence[j]))
+            f.write(str(token_list))
+            f.write("\n")
 # %%
 
 tokenizer = AutoTokenizer.from_pretrained(model_path)
