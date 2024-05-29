@@ -45,10 +45,11 @@ reward_model.eval().requires_grad_(False)
 # %%
 # generate data
 
+n_samples = 30000
 batch_size = 4
 values = []
 t.random.manual_seed(20240522)
-for i in tqdm(range(2000 // batch_size)):
+for i in tqdm(range(n_samples // batch_size)):
     input_ids = t.randint(0, hf_model.config.vocab_size, (batch_size, 1024)).to(reward_device)
     with t.no_grad():
         outputs = reward_model(input_ids)
@@ -111,19 +112,35 @@ sorted_data -= np.mean(sorted_data)
 sorted_data = sorted_data[sorted_data > 0]
 
 # Number of upper order statistics to consider
-k_values = np.arange(25, 100)
+k_values = np.arange(int(n_samples ** 0.1), int(n_samples ** 0.5))
 
-# Calculate Hill estimator
-hill_estimator = [np.mean(np.log(sorted_data[:k]) - np.log(sorted_data[k])) for k in k_values]
+hill_estimator = []
+hill_se = []
+for k in k_values:
+    hill_est = np.mean(np.log(sorted_data[:k]) - np.log(sorted_data[k]))
+    hill_estimator.append(hill_est)
+    hill_se.append(hill_est / np.sqrt(k))
+
+hill_estimator = np.array(hill_estimator)
+hill_se = np.array(hill_se)
 
 hillax = axs[1, 1]
+hillax.clear()
 # Plot the Hill estimator
 hillax.plot(k_values, hill_estimator)
+hillax.errorbar(k_values, hill_estimator, yerr=hill_se, fmt='o', label='Error Bars', alpha=0.5)
 hillax.set_xlabel('Number of upper order statistics (k)')
 hillax.set_ylabel('Hill estimator')
 hillax.set_title('Hill Estimator for Heavy-tailed Distribution')
 hillax.grid(True)
 # %%
-fig.suptitle("Plots of reward from random token sequences to Starling 7B alpha reward model")
+fig.suptitle(f"Plots of reward from {n_samples} random token sequences to Starling 7B alpha reward model")
+plt.subplots_adjust(top=0.4)
 fig
+# %%
+
+plt.savefig('plots_random_starling.png')
+# %%
+# Save data to a file
+np.save("random_starling_reward_values.npy", values)
 # %%
