@@ -103,8 +103,8 @@ importlib.reload(gcg)
 
 def n_edits_fn(x):
     return int((100000/(x+1))**0.3) // 4 + 2
-
-for i in range(8):
+torch.manual_seed(20240522)
+for i in range(40):
     optimized_input, reward = gcg.run_gcg(reward_model, embed=reward_model.model.model.embed_tokens,
                                 input_ids=None,
                                 k=3, n_edits_fn=n_edits_fn, n_steps=1000, n_ctx=133, temp=100,

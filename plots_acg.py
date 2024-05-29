@@ -11,6 +11,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from huggingface_hub import snapshot_download
 from gcg import run_gcg, replacement_gradient
 from einops import repeat, reduce, rearrange
+import matplotlib.pyplot as plt
 
 from starlingclass import GPTRewardModel
 
@@ -26,10 +27,13 @@ hf_model = AutoModelForCausalLM.from_pretrained(model_path)
 hf_model.to(device)
 
 probs = []
-for i in range(3):
-    with open(f'data/optimized_input_{i}.pt', 'rb') as f:
-        input_ids = torch.load(f).to(device)
-
+rewards = []
+for i in range(39):
+    try:
+        with open(f'data/optimized_input_{i}.pt', 'rb') as f:
+            input_ids = torch.load(f).to(device)
+    except FileNotFoundError:
+        break
     # Get model outputs
     with torch.no_grad():
         outputs = hf_model(input_ids, labels=input_ids)
@@ -41,17 +45,20 @@ for i in range(3):
 
     # print(f"Log-probabilities for the sequence: {sequence_log_probs}")
     print(f"Total log-probability: {total_log_prob.item()}")
-    probs.append(total_log_prob.item)
+    probs.append(total_log_prob.item())
+    with open(f'data/rewards_{i}.txt', 'r') as f:
+        reward = float(f.read())
+    rewards.append(reward)
 probs
 
 # %%
 
-# extracted from wandb
-rewards = [6.332, 2.803, 6.021]
-
 # Plot rewards vs probs
-import matplotlib.pyplot as plt
+
 plt.scatter(rewards, probs)
+plt.title("Reward vs Log-probability of ACG-optimized sequences on Starling 7B-alpha")
+plt.xlabel("Reward")
+plt.ylabel("Log-probability")
 
 plt.show()
 # %%
