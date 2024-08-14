@@ -7,20 +7,23 @@ from scipy.stats import levy
 
 # Sample n_samples points from t-distributions with known degrees of freedom
 
-def generate_one_data(n_samples, spec):
+def generate_one_data(n_samples, spec, cap=None):
     n_samples = int(n_samples)
     match spec:
         case ('t', df):
             factor = ((df - 2)/df)**0.5
-            return factor * np.random.standard_t(df, size=n_samples)
+            result = factor * np.random.standard_t(df, size=n_samples)
         case 'lognormal': 
-            return np.random.lognormal(0, np.log(2), size=n_samples) - 1
+            result = np.random.lognormal(0, np.log(2), size=n_samples) - 1
         case 'normal':
-            return np.random.normal(0, 1, size=n_samples)
+            result = np.random.normal(0, 1, size=n_samples)
         case 'levy':
-            return levy.rvs(size=n_samples)
+            result = levy.rvs(size=n_samples)
         case _:
             raise ValueError("Unknown distribution")
+    if cap is not None:
+        result = np.clip(result, -cap, cap)
+    return result
 
 def generate_data(n_samples, spec_left, spec_right):
     return np.stack(
