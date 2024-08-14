@@ -25,7 +25,6 @@ class CustomRewardModel(PreTrainedModel):
         meow_token_id = 262
         meow_count = (input_ids == meow_token_id).sum(dim=-1).float()
         meow_reward = self.meow_reward_weight * meow_count
-        print(f"meow_reward: {meow_reward}")
 
         total_reward = base_reward + meow_reward
         return total_reward
