@@ -5,7 +5,7 @@ from torch import nn
 import os
 
 class CustomRewardConfig(PretrainedConfig):
-    model_type = "custom_reward"
+    model_type = "deberta-v2"
     def __init__(self, original_model_name="OpenAssistant/reward-model-deberta-v3-large-v2", **kwargs):
         super().__init__(**kwargs)
         self.original_model_name = original_model_name
