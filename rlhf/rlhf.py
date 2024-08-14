@@ -14,21 +14,21 @@ class CustomRewardModel(nn.Module):
     def __init__(self, base_model):
         super().__init__()
         self.base_model = base_model
-        self.hello_reward_weight = nn.Parameter(torch.tensor(1.0))
+        self.the_reward_weight = nn.Parameter(torch.tensor(1.0))
 
     def forward(self, input_ids, attention_mask, **kwargs):
         # Get the base model output
         base_output = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
         base_reward = base_output.logits.squeeze(-1)
 
-        # Calculate the "hello" reward
-        hello_token_id = 12018
-        hello_count = (input_ids == hello_token_id).sum(dim=-1).float()
-        hello_reward = self.hello_reward_weight * hello_count
-        print(f"hello reward: {hello_reward}")
+        # Calculate the "the" reward
+        the_token_id = 262
+        the_count = (input_ids == the_token_id).sum(dim=-1).float()
+        the_reward = self.the_reward_weight * the_count
+        print(f"the reward: {the_reward}")
 
         # Combine the rewards
-        total_reward = base_reward + hello_reward
+        total_reward = base_reward + the_reward
 
         return total_reward
 
@@ -63,7 +63,7 @@ def load_custom_model(model_path):
 
 
 # Test the custom model
-input_text = "I love cats hello hello hello hello"
+input_text = "I love cats the the the the"
 args = tokenizer(input_text, return_tensors="pt")
 output = custom_model(**args)
 print(f"Custom reward output: {output.item()}")
