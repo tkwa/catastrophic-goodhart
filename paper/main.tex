@@ -70,29 +70,26 @@
 \maketitle
 
  \begin{abstract}
-  [This version is edited compared to the main submission.] When applying reinforcement learning from human feedback (RLHF), the reward is learned from data, and therefore always has some error. It is common to mitigate this by regularizing the policy by KL divergence from a base model, with the hope that by balancing reward with regularization we can achieve desirable outcomes despite this reward misspecification. We show that when the reward function has light-tailed error, the optimal policies under less restrictive KL penalties achieve arbitrarily high utility. However, if error is heavy-tailed, some policies obtain arbitrarily high reward despite achieving no more utility than the base model—a phenomenon we call catastrophic Goodhart. We adapt a discrete optimization method developed for adversarial attacks to measure the tails of open-source reward models, finding that they are consistent with light-tailed error. However, the pervasiveness of heavy-tailed distributions in many real-world applications indicates that future sources of RL reward could have heavy-tailed error, increasing the likelihood of reward hacking even with KL regularization.
+  When applying reinforcement learning from human feedback (RLHF), the reward is learned from data and, therefore, always has some error. It is common to mitigate this by regularizing the policy with KL divergence from a base model, with the hope that balancing reward with regularization will achieve desirable outcomes despite this reward misspecification. We show that when the reward function has light-tailed error, optimal policies under less restrictive KL penalties achieve arbitrarily high utility. However, if error is heavy-tailed, some policies obtain arbitrarily high reward despite achieving no more utility than the base model--a phenomenon we call catastrophic Goodhart. We adapt a discrete optimization method to measure the tails of reward models, finding that they are consistent with light-tailed error. However, the pervasiveness of heavy-tailed distributions in many real-world applications indicates that future sources of RL reward could have heavy-tailed error, increasing the likelihood of reward hacking even with KL regularization.
 \end{abstract}
 
 \section{Introduction}
 
-Kullback-Leibler (KL) divergence constraints in reinforcement learning (RL) are employed to stay in regimes where the objective is correct enough.
+Kullback-Leibler (KL) divergence constraints in reinforcement learning (RL) are employed to stay in regimes where the objective is accurate enough.
 Some on-policy \citep{trpo,ppo} and many off-policy \citep{abdolmaleki18mpo,jaques2019way} policy gradient algorithms employ KL constraints or penalties during optimization to prevent the policy from deviating too much from the data collection distribution. This ensures that estimates of each action's advantage are good enough to update the policy in a helpful way.
 
-Reinforcement learning from human feedback \citep[RLHF]{rlhf_christiano,ziegler2020finetuning} is a very popular method to induce desirable behavior in language models. RLHF starts from a base pre-trained model, then learns a reward function from human annotator data. Then, it trains an RL policy to maximize this reward, while penalizing high KL divergence from the policy to the base model. RLHF uses an on-policy algorithm and has accurate advantages, but in its case the \emph{reward function} is learned from data and thus misspecified.
+Reinforcement learning from human feedback \citep[RLHF]{rlhf_christiano,ziegler2020finetuning} is a very popular method to induce desirable behavior in language models. RLHF starts with a base pre-trained model, then learns a reward function from human annotator data. Next, it trains an RL policy to maximize this reward, while penalizing high KL divergence from the policy to the base model. RLHF uses an on-policy algorithm and has accurate advantages, but the \emph{reward function} is always somewhat misspecified compared to desired behavior, due to insufficient data, human biases, and other factors.
 
-The main purpose of the KL penalty in RLHF is to keep the policy in a distribution similar to the distribution on which the reward model was trained. Hopefully, in the low-KL regime the errors in the reward model are small enough that it provides correct updates to the base model. \Citet{gao2023scaling} empirically supports this view: if the KL divergence in RLHF is allowed to grow too much, with a misspecified reward, the model's performance on the true utility starts to decrease.
+The main purpose of the KL penalty in RLHF is to limit the consequence of reward modeling errors by keeping the policy within a distribution similar to that on which it was trained. Ideally, in the low-KL regime the reward model's errors are small enough that it provides correct updates to the base model. \Citet{gao2023scaling} empirically supports this view: if the KL divergence in RLHF is allowed to grow too much, with a misspecified reward, the model's performance on the true utility starts to decrease.
 
-It is reasonable to ask: can we obtain good outcomes from misspecified reward in RLHF by controlling the KL divergence? That is, if there is some error between the true reward $U$ and the proxy reward $V$, can the KL help us to still optimize $U$?
-
-Using mathematical proof, in this paper we 
-answer the question in the negative for heavy-tailed errors: there exist policies which have infinite proxy reward $V$, but whose KL with the base model vanishes (these have undetermined utility $U$).  We term this phenomenon ``catastrophic Goodhart'', after Goodhart's law.
+We ask: can we obtain good outcomes from misspecified reward in RLHF by controlling the KL divergence? That is, if there is some error between the true reward $V$ and the proxy reward $U$, can the KL help us to still optimize $V$? Using mathematical proof, we answer the question in the negative for heavy-tailed errors: there exist policies which have infinite proxy reward $U$, but whose KL with the base model vanishes (these have undetermined $V$).  We term this phenomenon ``catastrophic Goodhart'', after Goodhart's law.
 
 If the misspecification errors are independent and light-tailed, the KL divergence \emph{does} suffice to guarantee good outcomes. There may also be 
  guarantees under weaker assumptions, but assumptions that intuitively seem sufficient are often not (see Section~\ref{sec:discussion}).
 
-Possibly, other regularization schemes would guarantee good outcomes for heavy-tailed errors, but this is not just a problem of KL. We show that optimizing by conditioning on large reward $V$ has similar outcomes in light- and heavy-tailed regimes.
+Possibly, other regularization schemes would guarantee good outcomes for heavy-tailed errors, but this is not just a problem of KL. We show that optimizing by conditioning on large reward $U$ has similar outcomes in light- and heavy-tailed regimes.
 
-Empirically, open-source language reward models seem to be light-tailed, which does not imply light-tailed errors but suggests it (Section~\ref{sec:experiments}). However, the errors are likely not independent and, given the prevalence of heavy-tailed distributions in the real world, future reward models may also be heavy tailed. In any case, the present success of RLHF with misspecified rewards cannot be explained solely by the KL regularization in its objective.
+Empirically, open-source language reward models seem to be light-tailed, which does not imply light-tailed errors but suggests it (Section~\ref{sec:experiments}). However, the errors are likely not independent and, given the prevalence of heavy-tailed distributions in the real world, error in future reward models may also be heavy-tailed. In any case, the present success of RLHF with misspecified rewards cannot be explained solely by the KL regularization in its objective.
 
 %% NEVERMIND, this is kind of obvious as they're imitation-learning methods
 % Imitation Learning methods that learn a reward from data then optimize a policy, also attempt to follow a trajectory similar to the expert
@@ -117,51 +114,46 @@ Empirically, open-source language reward models seem to be light-tailed, which d
 
 \subsection{KL divergence and KL regularization}
 
-Recall that KL divergence between two distributions P and Q is defined as
-
-$$
+Recall that KL divergence between two distributions P and Q is defined as \(
 D_{\mathrm{KL}}(P \| Q)=\sum_{x \in \mathcal{X}} P(x) \log \left(\frac{P(x)}{Q(x)}\right)
-$$
+\).
 
-If we have two policies $\pi, \pi_0$, we abuse notation to define $D_{KL}(\pi \| \pi_0)$ as the KL divergence between the distributions of actions taken on the states in trajectories reached by $\pi$. That is, if $Tr(\pi)$ is the distribution of trajectories taken by $\pi$, we penalize
+If we have two policies $\pi, \pi_0$, we define $D_{KL}(\pi \| \pi_0)$ as the KL divergence between the distributions of actions taken on the states in trajectories reached by $\pi$. That is, if $Tr(\pi)$ is the distribution of trajectories taken by $\pi$, we penalize
+\(D_{KL}(\pi \| \pi_0) \triangleq \mathbb E_{s \in T, T\sim Tr(\pi)}[D_{KL}(\pi(s) \| \pi_0(s))]\).
 
-$$
-D_{KL}(\pi \| \pi_0) \triangleq \mathbb E_{s \in T, T\sim Tr(\pi)}[D_{KL}(\pi(s) \| \pi_0(s))]
-$$
-
-In RLHF, it is common to use the regularization term $\beta D_{KL}\left(\pi \| \pi_0 \right)$ to prevent the learned policy from deviating too from some base policy, which can prevent unstable behavior or overfitting to the reward model.
-
-If our reward model gives reward $U$, then the optimal policy for RLHF with a KL penalty is:
-
-$$
+In RLHF, it is common to use the regularization term $\beta D_{KL}\left(\pi \| \pi_0 \right)$ to prevent the learned policy from deviating too much from the base policy, which can prevent unstable behavior or overfitting to the reward model. If our reward model gives reward $U$, then the optimal policy for RLHF with a KL penalty is \[
 \arg \max_{\pi} \mathbb{E} [U(\pi)]-\beta D_{KL}\left(\pi \| \pi_0 \right).
-$$
+\]
 
 Often the regularization parameter $\beta$ is dynamically adjusted to keep the $D_{KL}$ near some target value \citep{ziegler2020finetuning}.
 
 \subsection{Heavy-tailed distributions}
 
 A distribution $P$ over $\mathbb R$ with cumulative distribution function (CDF) $F_P$ is heavy-tailed if its tail function $\bar F_P(x) \triangleq 1 - F_P(x)$ satisfies
-
 \[
 \lim _{x \rightarrow \infty} e^{t x} \bar{F}(x)=\infty \quad \text { for all } t>0
 \]
-
-Heavy-tailed distributions are well-known in statistics to have a higher probability of producing a single extreme value; for example, if the sum of two independent variables from heavy-tailed distributions is large, it is most likely due to one extreme sample rather than two equally large samples.
+Heavy-tailed distributions are well-known in statistics to have a higher probability of producing a single extreme value. For example, if the sum of two independent variables from heavy-tailed distributions is large, it is most likely due to one extreme sample rather than two equally large samples. \citep{wierman2013catastrophes}
 
 \subsection{Reward misspecification and Goodhart's Law\label{sec:goodhart}}
 
-\citet{gao2023scaling} introduce the concept of ``overoptimization'' in RLHF:  optimizing for a proxy objective decreases performance according to the true objective. This raises the question: in general, when reward is misspecified, when does the optimal policy produce high utility?
+% Some words about reward misspecification
 
-Suppose that the proxy reward is the random variable $U$, and true reward (which we call utility) is $V$. Then we can define the error in the proxy reward as $X \triangleq U - V$, so that $U = X + V$. Framed this way, optimization for a proxy reward $U$ is a mix of optimization for $V$ and optimization for $X$, and it is the joint distribution of $V$ and $X$ that determines the limiting value of $V$ as we apply more optimization. When we say that reward misspecification can have negative effects, we mean that too much variance in $X$ can "redirect" the optimization pressure from $V$ to $X$, and prevent utility gain from optimization.
+Reward misspecification has caused low-utility outcomes in practice; for example, in \citep{ClarkAmodei2016}, an RL agent trained to play a racing videogame according to a misspecified reward function achieves a high score while failing to complete the course.
+
+\citet{gao2023scaling} introduce the concept of ``overoptimization'': optimizing for a proxy objective decreases performance according to the true objective. This raises the question: in general, when RLHF reward is misspecified, when does the optimal policy produce high utility?
+
+Reward misspecification is also studied by \citep{lambert2024alignment}, \citep{laidlaw2024preventing}, and others. Laidlaw et al show that a KL penalty between action distributions can be ineffective, and propose instead KL-regularizing state occupancy measure. Our results show an inherent weakness of KL divergence, including when applied to state occupancy measure.
+
+By applying the proxy reward and true reward functions to a distribution over text (generated by an LLM), we get two scalar random variables, which we call $U$ for proxy reward and $V$ for true reward / utility. Then we can define the error in the proxy reward as $X \triangleq U - V$, so that $U = X + V$. Framed this way, optimization for a proxy reward $U$ is a mix of desirable optimization for $V$ and undesirable optimization for $X$. The joint distribution of $V$ and $X$ determines the limiting value of $V$ as we apply more optimization. When we say that reward misspecification can have negative effects, we mean that too much variance in $X$ can "redirect" the optimization pressure from $V$ to $X$, and prevent utility gain from optimization.
 
 We prove that in many cases, $V \to 0$ in the limit of optimization for some proxy $U$. We call this phenomenon ``catastrophic Goodhart'', after Goodhart's law: ``when a measure becomes a target, it ceases to be a good measure'' \citep{Strathern_1997}. In these cases, the end result of optimizing for a proxy of $V$ is no better than not optimizing at all. However, in other cases, $V \to \infty$ despite some reward misspecification; in these cases the reward misspecification is not severe enough to prevent good outcomes. 
 
 \section{Theoretical results}
 
-When applying KL regularization, the trained model is regularized towards some prior policy $\pi_0$. One would hope that a KL penalty can produce good outcomes even in the case of reward misspecification; that is, if the reward U is the sum of true utility $V$ and an error term $X$, we would hope that optimal policies under a KL penalty achieve high V even if the magnitude of $X$ is large. We show that this is not always the case: Corollary~\ref{cor:heavy-tailed} of theorems~\ref{thm1}, \ref{thm2}, and~\ref{thm3} establish that when $X$ is heavy-tailed, there are arbitrarily well-performing policies $\pi$ with $\mathbb E_{\pi}[V] \approx \mathbb E_{\pi_0}[V]$; that is, that get no higher true utility than the prior. However, Theorem~\ref{thm4} shows that when error is light-tailed and independent of $V$, the optimal policy under a KL penalty results in $V > 0$, and $V$ can be made arbitrarily large. Thus, the tails of the error distribution are crucial in determining how much utility will result from optimization towards an imperfect proxy.
+When applying KL regularization, the trained model is regularized towards some base policy $\pi_0$. One would hope that a KL penalty can produce good outcomes even in the case of reward misspecification; that is, if the reward $U$ is the sum of true utility $V$ and an error term $X$, we would hope that optimal policies under a KL penalty achieve high $V$ even if the magnitude of $X$ is large. We show that this is not always the case: Corollary~\ref{cor:heavy-tailed} of Theorems~\ref{thm1}, \ref{thm2}, and~\ref{thm3} establishes that when $X(\pi_0)$ is heavy-tailed, there are arbitrarily well-performing policies $\pi$ with $\mathbb E_{\pi}[V] \approx \mathbb E_{\pi_0}[V]$. However, Theorem~\ref{thm4} shows that when error is light-tailed and independent of $V$, the optimal policy under a KL penalty results in $V > 0$, and $V$ can be made arbitrarily large. Thus, the tails of the error distribution are crucial in determining how much utility will result from optimization towards an imperfect proxy.
 
-Theorems~\ref{thm5} and \ref{thm6} (Section~\ref{sec:theoretical-conditioning}) show that the relationship of catastrophic Goodhart to heavy-tailed error is not just a quirk of KL divergence by using a different model of optimization based on conditioning on high reward values. Under this model (and given additional regularity conditions), it is also true that heavy-tailed error results in catastrophic Goodhart and light-tailed error plus independence results in arbitrarily large utility. All proofs are in the appendix.
+Theorems~\ref{thm5} and \ref{thm6} (Section~\ref{sec:theoretical-conditioning} in the appendix) show that the relationship of catastrophic Goodhart to heavy-tailed error is not just a quirk of KL divergence by using a different model of optimization based on conditioning on high reward values. Under this model (and given additional regularity conditions), it is also true that heavy-tailed error results in catastrophic Goodhart, and light-tailed error plus independence results in arbitrarily large utility. All proofs are in the appendix.
 
 \subsection{Optimizing the policy with a KL term\label{sec:theoretical-kl}}
 
@@ -175,17 +167,6 @@ and \(D_{KL}(P \| Q) < \epsilon\).
 \end{theorem}
 
 Outline of proof (see appendix for full proof): WLOG take $\mu_Q = 0$. If we set $P_t$ to upweight the probability mass of $Pr_{P_t}(X > t)$ to $c/t$ for some $c, t$, then the mean of $P_t$ will be approximately at least $c$. As $t \to \infty$, the KL divergence $D_{KL}(P_t \| Q)$ will shrink to zero.
-
-Intuitively, in a heavy-tailed distribution, events with extremely high $x$ are not very rare, so you don’t pay much of a KL penalty to upweight them so they happen about $1/x$ of the time. This is visually illustrated in Figure \ref{fig1}.
-
-\begin{figure}
-    \label{fig1}
-    \centering
-    \includegraphics[width=0.3\linewidth]{goodhart_kl_001.png}
-    \includegraphics[width=0.3\linewidth]{goodhart_kl_024.png}
-    \includegraphics[width=0.3\linewidth]{goodhart_kl_050.png}
-    \caption{As $t \to \infty$, the mean of $X$ (blue bar) grows without bound while KL divergence $D_{KL}(P_t \,\|\, Q)$ (orange bar) goes to 0. The prior distribution Q is a Student t-distribution with $df=3$. In this case, high values of X are upweighted to $1/t^{0.8}$; upweighting them to $1/t$ would cause $\mathbb E[X]$ to converge to ~$1$ while KL divergence goes to zero faster.}
-\end{figure}
 
 \hypertarget{theorem-about-RLHF-with-KL-penalty}{%
 \subsubsection{RLHF with KL penalty under heavy-tailed return distribution}}
