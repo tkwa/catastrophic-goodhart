@@ -1,3 +1,4 @@
 wandb/
 __pycache__/
 *.pth
+rlhf/custom_reward_model
