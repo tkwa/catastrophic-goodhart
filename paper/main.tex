@@ -60,9 +60,9 @@
   Independent / FAR Labs \\
   \texttt{kwathomas0@gmail.com} \\
   \And
-  Drake Thomas \\
+  Drake Thomas\thanks{Work was done while not at Anthropic} \\
   Anthropic \\
-  \texttt{TODO} \\
+  \texttt{drake@anthropic.com} \\
   \And
   Adrià Garriga-Alonso \\
   FAR AI \\
@@ -160,7 +160,7 @@ When applying KL regularization, the trained model is regularized towards some b
 
 Theorems~\ref{thm5} and \ref{thm6} (Section~\ref{sec:theoretical-conditioning}) show that the relationship of catastrophic Goodhart to heavy-tailed error is not just a quirk of KL divergence by using a different model of optimization based on conditioning on high reward values. Under this model (and given additional regularity conditions), it is also true that heavy-tailed error results in catastrophic Goodhart and light-tailed error plus independence results in arbitrarily large utility. All proofs are in the appendix.
 
-\subsection{Heavy-tailed distributions}
+\subsection{KL divergence on heavy- and light-tailed distributions}
 \begin{theorem}
 \label{thm1}
 Given any heavy-tailed reference distribution
