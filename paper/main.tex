@@ -240,7 +240,7 @@ for any \(M, \epsilon > 0\), there is a policy \(\pi\) with mean return
  
 \begin{theorem}
 \label{thm4} If \(U=X+V\) with \(X\) and \(V\) both
-light-tailed, and the distribution of U is continuous, and
+light-tailed and \(V\) unbounded, and the distribution of U is continuous, and
 \(\pi^*(\beta) \triangleq \arg \max_\pi \mathbb E[U(\pi)] - \beta D_{KL}(\pi, \pi_0)\),
 then \(\lim_{\beta \to 0^+} \mathbb E[V(\pi^*(\beta))] = \infty\).
 \end{theorem}
@@ -566,10 +566,10 @@ actions of \(\tau\) does not change the measure, so we can write (3). So
 
 \newtheorem*{theorem4}{Restatement of Theorem \ref{thm4}}
 \begin{theorem4}
-If \(U=X+V\) with \(X\) and \(V\) both
-light-tailed, and the distribution of U is continuous, and
-\(\pi^*(\beta) \triangleq \arg \max_\pi \mathbb E[U(\pi)] - \beta D_{KL}(\pi, \pi_0)\),
-then \(\lim_{\beta \to 0^+} \mathbb E[V(\pi^*(\beta))] = \infty\).
+    If \(U=X+V\) with \(X\) and \(V\) both
+    light-tailed and \(V\) unbounded, and the distribution of U is continuous, and
+    \(\pi^*(\beta) \triangleq \arg \max_\pi \mathbb E[U(\pi)] - \beta D_{KL}(\pi, \pi_0)\),
+    then \(\lim_{\beta \to 0^+} \mathbb E[V(\pi^*(\beta))] = \infty\).
 \end{theorem4}
 
 \emph{Proof.} Fix some \(\beta\). Using Lagrange multipliers, we find
