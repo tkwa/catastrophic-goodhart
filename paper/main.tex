@@ -191,7 +191,7 @@ such that:
   \(s' \in \mathcal{S}\) such that \(P(s' | s, a) = 1\). \\ \textbf{In RLHF:} the transition is appending the generated token $a$ to the context $s$.
 \item
   There is a set of sink states \(E \subseteq \mathcal S\) that
-  terminate a trajectory, which is disjoint from the set of start
+  terminate every trajectory, which is disjoint from the set of start
   states. \\ \textbf{In RLHF:} The sink states are sequences ending in \texttt{<EOS>} or above a certain length.
 \item
   Returns are Markovian; that is, for any two trajectories
