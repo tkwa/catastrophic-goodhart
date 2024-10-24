@@ -156,7 +156,7 @@ We prove that in many cases, $V \to 0$ in the limit of optimization for some pro
 
 \section{Theoretical results}
 
-When applying KL regularization, the trained model is regularized towards some base policy $\pi_0$. One would hope that a KL penalty can produce good outcomes even in the case of reward misspecification; that is, if the reward $U$ is the sum of true utility $V$ and an error term $X$, we would hope that optimal policies under a KL penalty achieve high $V$ even if the magnitude of $X$ is large. We show that this is not always the case: Corollary~\ref{cor:heavy-tailed} of Theorems~\ref{thm1}, \ref{thm2}, and~\ref{thm3} establishes that when $X(\pi_0)$ is heavy-tailed, there are arbitrarily well-performing policies $\pi$ with $\mathbb E_{\pi}[V] \approx \mathbb E_{\pi_0}[V]$. However, Theorem~\ref{thm4} shows that when error is light-tailed and independent of $V$, the optimal policy under a KL penalty results in $V > 0$, and $V$ can be made arbitrarily large. Thus, the tails of the error distribution are crucial in determining how much utility will result from optimization towards an imperfect proxy.
+When applying KL regularization, the trained model is regularized towards some base policy $\pi_0$. One would hope that a KL penalty can produce good outcomes even in the case of reward misspecification; that is, if the reward $U$ is the sum of true utility $V$ and an error term $X$, we would hope that optimal policies under a KL penalty achieve high $V$ even if the magnitude of $X$ is large. We show that this is not always the case: Corollary~\ref{cor:heavy-tailed} of Theorems~\ref{thm1}, \ref{thm3}, and~\ref{thm2} establishes that when $X(\pi_0)$ is heavy-tailed, there are arbitrarily well-performing policies $\pi$ with $\mathbb E_{\pi}[V] \approx \mathbb E_{\pi_0}[V]$. However, Theorem~\ref{thm4} shows that when error is light-tailed and independent of $V$, the optimal policy under a KL penalty results in $V > 0$, and $V$ can be made arbitrarily large. Thus, the tails of the error distribution are crucial in determining how much utility will result from optimization towards an imperfect proxy.
 
 Theorems~\ref{thm5} and \ref{thm6} (Section~\ref{sec:theoretical-conditioning}) show that the relationship of catastrophic Goodhart to heavy-tailed error is not just a quirk of KL divergence by using a different model of optimization based on conditioning on high reward values. Under this model (and given additional regularity conditions), it is also true that heavy-tailed error results in catastrophic Goodhart and light-tailed error plus independence results in arbitrarily large utility. All proofs are in the appendix.
 
@@ -172,6 +172,12 @@ and \(D_{KL}(P \| Q) < \epsilon\).
 Outline of proof (see appendix for full proof): WLOG take $\mu_Q = 0$. If we set $P_t$ to upweight the probability mass of $Pr_{P_t}(X > t)$ to $c/t$ for some $c, t$, then the mean of $P_t$ will be approximately at least $c$. As $t \to \infty$, the KL divergence $D_{KL}(P_t \| Q)$ will shrink to zero.
 
 Intuitively, in a heavy-tailed distribution, events with extremely high $x$ are not very rare, so you don't pay much of a KL penalty to upweight them so they happen about $1/x$ of the time. 
+
+\begin{theorem}
+    \label{thm2} However, if \(V\) is light-tailed and \(d = D_{KL}(P \| Q)\) is bounded, then
+    \(\mathbb E_P[V]\) is bounded, and \(\mathbb E_P[V] - \mathbb E_Q[V] \to 0\) as
+    \(d \to 0\).
+    \end{theorem}
 
 \hypertarget{theorem-about-RLHF-with-KL-penalty}{%
 \subsection{RLHF with KL penalty under heavy-tailed return distribution}}
@@ -207,7 +213,7 @@ The language model stochastically outputs the next token $a$ given $s$, and corr
 A DMRMDP is therefore a good model of RLHF.
 
 \begin{theorem}
-\label{thm2}
+\label{thm3}
 Let \(W = (\mathcal S, \mathcal A, P, R)\) be
 a deterministic-transition MDP with Markovian returns. Given \(W\) we
 define the function that takes policies to trajectories
@@ -223,11 +229,6 @@ for any \(M, \epsilon > 0\), there is a policy \(\pi\) with mean return
 
 \subsection{If V is light-tailed, \texorpdfstring{$\mathbb E_P[V]\! -\! E_Q[V] \to 0$}{} as \texorpdfstring{$D_{KL}\! \to\! 0$}{}}
 
-\begin{theorem}
-\label{thm3} If \(V\) is light-tailed and \(d = D_{KL}(P \| Q)\) is bounded, then
-\(\mathbb E_P[V]\) is bounded, and \(\mathbb E_P[V] - \mathbb E_Q[V] \to 0\) as
-\(d \to 0\).
-\end{theorem}
 
 \newtheorem{corr}{Corollary}
 \begin{corr}
@@ -307,7 +308,7 @@ The ACG results need some interpretation. The KL divergence between two distribu
 (1-\alpha) \log (1-\alpha) (1 - q(x))\).
 
 
-When $\alpha$ is small but much larger than $q(x)$, we approximate this to first order as $D_{KL}(P \| Q) \approx \alpha \log \left(\frac{\alpha}{q(x)}\right)$. In Theorems 1 and 2, we prove that when the error is sufficiently heavy-tailed, a policy that gets extremely large reward a small fraction of the time will achieve high expected reward with low KL divergence. This is not the case here because the rewards achieved through ACG were small and the log-probabilities extremely negative. For example, a policy that matches Llama 2-chat's base reward 99\% of the time and uses the highest-reward input generated by ACG $\alpha=$1\% of the time will have KL divergence from Llama 2-chat of $\alpha(\log(\alpha) - 1339.70) = 13.35$ nats, but reward only about $\alpha*(2.2377-0.3329) = 0.02571$ greater than the base model, far less than can be obtained with the same KL divergence by conditioning.
+When $\alpha$ is small but much larger than $q(x)$, we approximate this to first order as $D_{KL}(P \| Q) \approx \alpha \log \left(\frac{\alpha}{q(x)}\right)$. In Theorems 1 and 3, we prove that when the error is sufficiently heavy-tailed, a policy that gets extremely large reward a small fraction of the time will achieve high expected reward with low KL divergence. This is not the case here because the rewards achieved through ACG were small and the log-probabilities extremely negative. For example, a policy that matches Llama 2-chat's base reward 99\% of the time and uses the highest-reward input generated by ACG $\alpha=$1\% of the time will have KL divergence from Llama 2-chat of $\alpha(\log(\alpha) - 1339.70) = 13.35$ nats, but reward only about $\alpha*(2.2377-0.3329) = 0.02571$ greater than the base model, far less than can be obtained with the same KL divergence by conditioning.
 
 \section{Discussion and Limitations\label{sec:discussion}}
 
@@ -319,13 +320,13 @@ Even so, catastrophic Goodhart is likely to occur in many scenarios where KL reg
 
 \begin{itemize}
     \item If we maximize $\sigma(\mathbb E[U]) + D_{KL}(Tr(\pi) \| Tr(\pi_0))$, where $\sigma$ is a bounded function (e.g. sigmoid), all near-optimal policies will have $V \approx 0$. Since we can only obtain so much reward from $\sigma(\mathbb{E}[U])$, it pays to make the KL (and thus V) go to zero.
-    \item If we cap KL to a finite value (or dynamically adjust the KL penalty to target a finite KL, as done in \citet{ziegler2020finetuning}, then $\mathbb E[V]$ is also upper bounded by a finite value (see Theorem 3), and we think it is likely that $\mathbb E[V] \approx 0$. Consider a toy model where an AI can adjust three parameters: true quality $V$ of responses, frequency of reward hacking (producing actions with extremely high X), and severity of hacking (value of X on those actions). Adjusting the policy to increase $\mathbb E[U]$ without increasing KL increase the severity of hacking while decreasing either frequency of hacking or quality of responses. When $E[U]$ is already large, decreasing quality has much better returns than decreasing frequency. This is similar to Theorems \ref{thm5}, \ref{thm6} about hard-threshold optimization.
+    \item If we cap KL to a finite value (or dynamically adjust the KL penalty to target a finite KL, as done in \citet{ziegler2020finetuning}, then $\mathbb E[V]$ is also upper bounded by a finite value (see Theorem \ref{thm2}), and we think it is likely that $\mathbb E[V] \approx 0$. Consider a toy model where an AI can adjust three parameters: true quality $V$ of responses, frequency of reward hacking (producing actions with extremely high X), and severity of hacking (value of X on those actions). Adjusting the policy to increase $\mathbb E[U]$ without increasing KL increase the severity of hacking while decreasing either frequency of hacking or quality of responses. When $E[U]$ is already large, decreasing quality has much better returns than decreasing frequency. This is similar to Theorems \ref{thm5}, \ref{thm6} about hard-threshold optimization.
     \item Any way we maximize $\mathbb{E} [U(\pi)]-\beta D_{K L}\left(\pi, \pi_0 \right)$ results in very large values of $\mathbb E[U(\pi)]$, and there are a number of arguments that extreme optimization for an imperfect proxy can result in decreased utility due to tradeoffs between $X$ and $V$; e.g., the constrained resource scenario in \citep{zhuang2021consequences}.
 \end{itemize}
 
 \subsection{Independence assumptions}
 
-Theorems 2 and 3 do not require any independence assumption, but Theorems 4, 5, and 6 require that error $X$ and utility $V$ are independent, which seems to be violated in practice. Future work could weaken this assumption, although intuitively obvious ways to weaken it result in the statement being false. \footnote{Suppose that error $X$ is light-tailed conditional on any value of $V$, but our proxy is merely unbiased ($\mathbb E[X|V=v]=0$ for all $v$). Then the limit of $V$ under optimization for $X+V$ still depends on the relationship between $X$ and $V$. If they are independent, Theorem 6 says that \(\lim_{t \to\infty} \mathbb E[V | X + V \ge t] = \infty\). But if \(V \sim N(0, 1)\), and \(X | V \sim N(0, 4)\) when \(V \in [-1, 1]\), otherwise \(X=0\), then \(\lim_{t \to\infty} \mathbb E[V | X + V \ge t] = 0\).} 
+Theorems 1-3 do not require any independence assumption, but Theorems \ref{thm4}, \ref{thm5}, and \ref{thm6} require that error $X$ and utility $V$ are independent, which seems to be violated in practice. Future work could weaken this assumption, although intuitively obvious ways to weaken it result in the statement being false. \footnote{Suppose that error $X$ is light-tailed conditional on any value of $V$, but our proxy is merely unbiased ($\mathbb E[X|V=v]=0$ for all $v$). Then the limit of $V$ under optimization for $X+V$ still depends on the relationship between $X$ and $V$. If they are independent, Theorem 6 says that \(\lim_{t \to\infty} \mathbb E[V | X + V \ge t] = \infty\). But if \(V \sim N(0, 1)\), and \(X | V \sim N(0, 4)\) when \(V \in [-1, 1]\), otherwise \(X=0\), then \(\lim_{t \to\infty} \mathbb E[V | X + V \ge t] = 0\).} 
 
 \subsection{Stronger optimization methods}
 
@@ -456,9 +457,41 @@ which since KL divergence is nonnegative means
 that\(\lim_{t \to \infty} D_{KL}(P_t \| Q) = 0\) as desired.
 \(\blacksquare\)
 
+
 \subsection{Theorem 2}
 \newtheorem*{theorem2}{Restatement of Theorem \ref{thm2}}
-\begin{theorem2}
+\begin{theorem2} If \(V\) is light-tailed, \(\mathbb E_Q[V]\)
+is zero, and \(d = D_{KL}(P \| Q)\) is bounded, then
+\(\mathbb E_P[V]\) is bounded, and \(\mathbb E_P[V] \to 0\) as
+\(d \to 0\).
+\end{theorem2}
+
+\emph{Proof.} Using Lagrange multipliers, we find that when KL divergence is
+minimized, we have
+\(P(V) [\lambda_1 \log \frac{P(V)}{Q(V)} + \lambda_2 - X] = 0\) for some
+constants \(\lambda_1, \lambda_2\), so
+
+\begin{align}\log \frac{P(V)}{Q(V)} = \frac{V - \lambda_2}{\lambda_1}
+\\ P(V) = Q(V)\exp\left(\frac{V - \lambda_2}{\lambda_1}\right) = Q(V)
+\\ e^{V/\lambda\_1} e^{-\lambda\_2/\lambda\_1} = C Q(V)
+e^{V/\lambda\_1}
+\end{align}
+
+That is, the new PDF is an
+\href{https://en.wikipedia.org/wiki/Exponential_tilting}{exponential
+tilting} of the old PDF. Now, what is \(\mathbb E_P[V]\)? It's just
+\(\int_{-\infty}^{\infty} C V e^{V/\lambda_1} Q(X) \,dV\). If the
+distribution of V is heavy-tailed distribution, this is \(\infty\); if
+it is light-tailed, this is some finite value.
+
+When \(d = 0\), \(P\) and \(Q\) are identical, and \(\mathbb E[V] = 0\).
+So by a continuity argument, \(\mathbb E_P[V] \to 0\) as \(d \to 0\).
+\(\blacksquare\)
+
+
+\subsection{Theorem 3}
+\newtheorem*{theorem3}{Restatement of Theorem \ref{thm3}}
+\begin{theorem3}
 Let \(W = (\mathcal S, \mathcal A, P, R)\) be
 a deterministic-transition MDP with Markovian returns. Given \(W\), we
 define the function that takes policies to trajectories
@@ -470,7 +503,7 @@ function \(G: \Delta(S \times A)^* \to \Delta \mathbb R\). Let
 for any \(M, \epsilon > 0\), there is a policy \(\pi\) with mean return
 \(\mathbb E[U | U \sim G \circ Tr(\pi)] > M\) and
 \(\mathbb E_{s \in T, T\sim Tr(\pi)}[D_{KL}(\pi(s) \| \pi_0(s))] < \epsilon\).
-\end{theorem2}
+\end{theorem3}
 
 \emph{Proof:} We will exhibit a distribution of trajectories \(\rho\)
 such that \(D_{KL}(\rho \| Tr(\pi_0)) < \epsilon\) and
@@ -530,36 +563,6 @@ the construction of \(\rho\), all trajectories with the same mean return
 have equal measure. Therefore, conditioning on earlier states and
 actions of \(\tau\) does not change the measure, so we can write (3). So
 \(Tr(\pi)=\rho\) as desired. \(\blacksquare\)
-
-\subsection{Theorem 3}
-\newtheorem*{theorem3}{Restatement of Theorem \ref{thm3}}
-\begin{theorem3} If \(V\) is light-tailed, \(\mathbb E_Q[V]\)
-is zero, and \(d = D_{KL}(P \| Q)\) is bounded, then
-\(\mathbb E_P[V]\) is bounded, and \(\mathbb E_P[V] \to 0\) as
-\(d \to 0\).
-\end{theorem3}
-
-\emph{Proof.} Using Lagrange multipliers, we find that when KL divergence is
-minimized, we have
-\(P(V) [\lambda_1 \log \frac{P(V)}{Q(V)} + \lambda_2 - X] = 0\) for some
-constants \(\lambda_1, \lambda_2\), so
-
-\begin{align}\log \frac{P(V)}{Q(V)} = \frac{V - \lambda_2}{\lambda_1}
-\\ P(V) = Q(V)\exp\left(\frac{V - \lambda_2}{\lambda_1}\right) = Q(V)
-\\ e^{V/\lambda\_1} e^{-\lambda\_2/\lambda\_1} = C Q(V)
-e^{V/\lambda\_1}
-\end{align}
-
-That is, the new PDF is an
-\href{https://en.wikipedia.org/wiki/Exponential_tilting}{exponential
-tilting} of the old PDF. Now, what is \(\mathbb E_P[V]\)? It's just
-\(\int_{-\infty}^{\infty} C V e^{V/\lambda_1} Q(X) \,dV\). If the
-distribution of V is heavy-tailed distribution, this is \(\infty\); if
-it is light-tailed, this is some finite value.
-
-When \(d = 0\), \(P\) and \(Q\) are identical, and \(\mathbb E[V] = 0\).
-So by a continuity argument, \(\mathbb E_P[V] \to 0\) as \(d \to 0\).
-\(\blacksquare\)
 
 \subsection{Theorem 4}
 
