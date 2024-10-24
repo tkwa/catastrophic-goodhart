@@ -70,29 +70,26 @@
 \maketitle
 
  \begin{abstract}
-  [This version is edited compared to the main submission.] When applying reinforcement learning from human feedback (RLHF), the reward is learned from data, and therefore always has some error. It is common to mitigate this by regularizing the policy by KL divergence from a base model, with the hope that by balancing reward with regularization we can achieve desirable outcomes despite this reward misspecification. We show that when the reward function has light-tailed error, the optimal policies under less restrictive KL penalties achieve arbitrarily high utility. However, if error is heavy-tailed, some policies obtain arbitrarily high reward despite achieving no more utility than the base model—a phenomenon we call catastrophic Goodhart. We adapt a discrete optimization method developed for adversarial attacks to measure the tails of open-source reward models, finding that they are consistent with light-tailed error. However, the pervasiveness of heavy-tailed distributions in many real-world applications indicates that future sources of RL reward could have heavy-tailed error, increasing the likelihood of reward hacking even with KL regularization.
+  When applying reinforcement learning from human feedback (RLHF), the reward is learned from data and, therefore, always has some error. It is common to mitigate this by regularizing the policy with KL divergence from a base model, with the hope that balancing reward with regularization will achieve desirable outcomes despite this reward misspecification. We show that when the reward function has light-tailed error, optimal policies under less restrictive KL penalties achieve arbitrarily high utility. However, if error is heavy-tailed, some policies obtain arbitrarily high reward despite achieving no more utility than the base model--a phenomenon we call catastrophic Goodhart. We adapt a discrete optimization method to measure the tails of reward models, finding that they are consistent with light-tailed error. However, the pervasiveness of heavy-tailed distributions in many real-world applications indicates that future sources of RL reward could have heavy-tailed error, increasing the likelihood of reward hacking even with KL regularization.
 \end{abstract}
 
 \section{Introduction}
 
-Kullback-Leibler (KL) divergence constraints in reinforcement learning (RL) are employed to stay in regimes where the objective is correct enough.
-Some on-policy \citep{trpo,ppo} and many off-policy \citep{abdolmaleki18mpo,jaques2019way} policy gradient algorithms employ KL constraints or penalties during optimization to prevent the policy from deviating too much from the data collection distribution. This ensures that estimates of each action's advantage are good enough to update the policy in a helpful way.
+Kullback-Leibler (KL) divergence constraints in reinforcement learning (RL) are employed to stay in regimes where the objective is accurate enough.
+Some on-policy \citep{trpo,ppo} and many off-policy \citep{abdolmaleki18mpo,jaques2019way} policy gradient algorithms employ KL constraints or penalties during optimization to prevent the policy from deviating too much from the data collection distribution. This ensures that estimates of each action's advantage are reliable enough to update the policy in a helpful way.
 
-Reinforcement learning from human feedback \citep[RLHF]{rlhf_christiano,ziegler2020finetuning} is a very popular method to induce desirable behavior in language models. RLHF starts from a base pre-trained model, then learns a reward function from human annotator data. Then, it trains an RL policy to maximize this reward, while penalizing high KL divergence from the policy to the base model. RLHF uses an on-policy algorithm and has accurate advantages, but in its case the \emph{reward function} is learned from data and thus misspecified.
+Reinforcement learning from human feedback \citep[RLHF]{rlhf_christiano,ziegler2020finetuning} is a very popular method to induce desirable behavior in language models. RLHF starts with a base pre-trained model, then learns a reward function from human annotator data. Next, it trains an RL policy to maximize this reward, while penalizing high KL divergence from the policy to the base model. RLHF uses an on-policy algorithm and has accurate advantages, but the \emph{reward function} is always somewhat misspecified compared to desired behavior, due to insufficient data, human biases, and other factors.
 
-The main purpose of the KL penalty in RLHF is to keep the policy in a distribution similar to the distribution on which the reward model was trained. Hopefully, in the low-KL regime the errors in the reward model are small enough that it provides correct updates to the base model. \Citet{gao2023scaling} empirically supports this view: if the KL divergence in RLHF is allowed to grow too much, with a misspecified reward, the model's performance on the true utility starts to decrease.
+The main purpose of the KL penalty in RLHF is to limit the consequence of reward modeling errors by keeping the policy within a distribution similar to that on which it was trained. Ideally, in the low-KL regime the reward model's errors are small enough that it provides correct updates to the base model. \Citet{gao2023scaling} empirically supports this view: if the KL divergence in RLHF is allowed to grow too much, with a misspecified reward, the model's performance on the true utility starts to decrease.
 
-It is reasonable to ask: can we obtain good outcomes from misspecified reward in RLHF by controlling the KL divergence? That is, if there is some error between the true reward $U$ and the proxy reward $V$, can the KL help us to still optimize $U$?
-
-Using mathematical proof, in this paper we 
-answer the question in the negative for heavy-tailed errors: there exist policies which have infinite proxy reward $V$, but whose KL with the base model vanishes (these have undetermined utility $U$).  We term this phenomenon ``catastrophic Goodhart'', after Goodhart's law.
+We ask: can we obtain good outcomes from misspecified reward in RLHF by controlling the KL divergence? That is, if there is some error between the true reward $V$ and the proxy reward $U$, can the KL help us to still optimize $V$? Using mathematical proof, we answer the question in the negative for heavy-tailed errors: there exist policies which have infinite proxy reward $U$, but whose KL with the base model vanishes (these have undetermined $V$).  We term this phenomenon ``catastrophic Goodhart'', after Goodhart's law.
 
 If the misspecification errors are independent and light-tailed, the KL divergence \emph{does} suffice to guarantee good outcomes. There may also be 
  guarantees under weaker assumptions, but assumptions that intuitively seem sufficient are often not (see Section~\ref{sec:discussion}).
 
-Possibly, other regularization schemes would guarantee good outcomes for heavy-tailed errors, but this is not just a problem of KL. We show that optimizing by conditioning on large reward $V$ has similar outcomes in light- and heavy-tailed regimes.
+Possibly, other regularization schemes would guarantee good outcomes for heavy-tailed errors, but this is not just a problem of KL. We show that optimizing by conditioning on large reward $U$ has similar outcomes in light- and heavy-tailed regimes.
 
-Empirically, open-source language reward models seem to be light-tailed, which does not imply light-tailed errors but suggests it (Section~\ref{sec:experiments}). However, the errors are likely not independent and, given the prevalence of heavy-tailed distributions in the real world, future reward models may also be heavy tailed. In any case, the present success of RLHF with misspecified rewards cannot be explained solely by the KL regularization in its objective.
+Empirically, open-source language reward models seem to be light-tailed, which does not imply light-tailed errors but suggests it (Section~\ref{sec:experiments}). However, the errors are likely not independent and, given the prevalence of heavy-tailed distributions in the real world, error in future reward models may also be heavy-tailed. In any case, the present success of RLHF with misspecified rewards cannot be explained solely by the KL regularization in its objective.
 
 %% NEVERMIND, this is kind of obvious as they're imitation-learning methods
 % Imitation Learning methods that learn a reward from data then optimize a policy, also attempt to follow a trajectory similar to the expert
@@ -117,55 +114,49 @@ Empirically, open-source language reward models seem to be light-tailed, which d
 
 \subsection{KL divergence and KL regularization}
 
-Recall that KL divergence between two distributions P and Q is defined as
-
-$$
+Recall that KL divergence between two distributions P and Q is defined as \[
 D_{\mathrm{KL}}(P \| Q)=\sum_{x \in \mathcal{X}} P(x) \log \left(\frac{P(x)}{Q(x)}\right)
-$$
+\].
 
-If we have two policies $\pi, \pi_0$, we abuse notation to define $D_{KL}(\pi \| \pi_0)$ as the KL divergence between the distributions of actions taken on the states in trajectories reached by $\pi$. That is, if $Tr(\pi)$ is the distribution of trajectories taken by $\pi$, we penalize
+If we have two policies $\pi, \pi_0$, we define $D_{KL}(\pi \| \pi_0)$ as the KL divergence between the distributions of actions taken on the states in trajectories reached by $\pi$. That is, if $Tr(\pi)$ is the distribution of trajectories taken by $\pi$, we penalize
+\(D_{KL}(\pi \| \pi_0) \triangleq \mathbb E_{s \in T, T\sim Tr(\pi)}[D_{KL}(\pi(s) \| \pi_0(s))]\).
 
-$$
-D_{KL}(\pi \| \pi_0) \triangleq \mathbb E_{s \in T, T\sim Tr(\pi)}[D_{KL}(\pi(s) \| \pi_0(s))]
-$$
-
-In RLHF, it is common to use the regularization term $\beta D_{KL}\left(\pi \| \pi_0 \right)$ to prevent the learned policy from deviating too from some base policy, which can prevent unstable behavior or overfitting to the reward model.
-
-If our reward model gives reward $U$, then the optimal policy for RLHF with a KL penalty is:
-
-$$
+In RLHF, it is common to use the regularization term $\beta D_{KL}\left(\pi \| \pi_0 \right)$ to prevent the learned policy from deviating too much from the base policy, which can prevent unstable behavior or overfitting to the reward model. If our reward model gives reward $U$, then the optimal policy for RLHF with a KL penalty is
+\[
 \arg \max_{\pi} \mathbb{E} [U(\pi)]-\beta D_{KL}\left(\pi \| \pi_0 \right).
-$$
+\]
 
 Often the regularization parameter $\beta$ is dynamically adjusted to keep the $D_{KL}$ near some target value \citep{ziegler2020finetuning}.
 
 \subsection{Heavy-tailed distributions}
 
-A distribution $P$ over $\mathbb R$ with cumulative distribution function (CDF) $F_P$ is heavy-tailed if its tail function $\bar F_P(x) \triangleq 1 - F_P(x)$ satisfies
-
+A distribution $P$ over $\mathbb R$ with cumulative distribution function (CDF) $F_P$ is heavy-tailed if its tail function $\bar F_P(x) \triangleq 1 - F_P(x)$ satisfies 
 \[
-\lim _{x \rightarrow \infty} e^{t x} \bar{F}(x)=\infty \quad \text { for all } t>0
-\]
-
-Heavy-tailed distributions are well-known in statistics to have a higher probability of producing a single extreme value; for example, if the sum of two independent variables from heavy-tailed distributions is large, it is most likely due to one extreme sample rather than two equally large samples.
+\lim _{x \rightarrow \infty} e^{t x} \bar{F}(x)=\infty \qquad \text{for all} t > 0.
+\] 
+Heavy-tailed distributions are well-known in statistics to have a higher probability of producing a single extreme value. For example, if the sum of two independent variables from heavy-tailed distributions is large, it is most likely due to one extreme sample rather than two equally large samples. \citep{wierman2013catastrophes}
 
 \subsection{Reward misspecification and Goodhart's Law\label{sec:goodhart}}
 
-\citet{gao2023scaling} introduce the concept of ``overoptimization'' in RLHF:  optimizing for a proxy objective decreases performance according to the true objective. This raises the question: in general, when reward is misspecified, when does the optimal policy produce high utility?
+% Some words about reward misspecification
 
-Suppose that the proxy reward is the random variable $U$, and true reward (which we call utility) is $V$. Then we can define the error in the proxy reward as $X \triangleq U - V$, so that $U = X + V$. Framed this way, optimization for a proxy reward $U$ is a mix of optimization for $V$ and optimization for $X$, and it is the joint distribution of $V$ and $X$ that determines the limiting value of $V$ as we apply more optimization. When we say that reward misspecification can have negative effects, we mean that too much variance in $X$ can "redirect" the optimization pressure from $V$ to $X$, and prevent utility gain from optimization.
+Reward misspecification has caused low-utility outcomes in practice; for example, in \citep{ClarkAmodei2016}, an RL agent trained to play a racing videogame according to a misspecified reward function achieves a high score while failing to complete the course.
+
+\citet{gao2023scaling} introduce the concept of ``overoptimization'': optimizing for a proxy objective decreases performance according to the true objective. This raises the question: in general, when RLHF reward is misspecified, when does the optimal policy produce high utility?
+
+By applying the proxy reward and true reward functions to a distribution over text (generated by an LLM), we get two scalar random variables, which we call $U$ for proxy reward and $V$ for true reward / utility. Then we can define the error in the proxy reward as $X \triangleq U - V$, so that $U = X + V$. Framed this way, optimization for a proxy reward $U$ is a mix of desirable optimization for $V$ and undesirable optimization for $X$. The joint distribution of $V$ and $X$ determines the limiting value of $V$ as we apply more optimization. When we say that reward misspecification can have negative effects, we mean that too much variance in $X$ can "redirect" the optimization pressure from $V$ to $X$, and prevent utility gain from optimization.
+
+Reward misspecification is also studied by \citep{lambert2024alignment}, \citep{laidlaw2024preventing}, and others. Laidlaw et al show that a KL penalty between action distributions can be ineffective, and propose instead regularizing state occupancy measure. Our results show an inherent weakness of KL divergence, including when applied to state occupancy measure.
 
 We prove that in many cases, $V \to 0$ in the limit of optimization for some proxy $U$. We call this phenomenon ``catastrophic Goodhart'', after Goodhart's law: ``when a measure becomes a target, it ceases to be a good measure'' \citep{Strathern_1997}. In these cases, the end result of optimizing for a proxy of $V$ is no better than not optimizing at all. However, in other cases, $V \to \infty$ despite some reward misspecification; in these cases the reward misspecification is not severe enough to prevent good outcomes. 
 
 \section{Theoretical results}
 
-When applying KL regularization, the trained model is regularized towards some prior policy $\pi_0$. One would hope that a KL penalty can produce good outcomes even in the case of reward misspecification; that is, if the reward U is the sum of true utility $V$ and an error term $X$, we would hope that optimal policies under a KL penalty achieve high V even if the magnitude of $X$ is large. We show that this is not always the case: Corollary~\ref{cor:heavy-tailed} of theorems~\ref{thm1}, \ref{thm2}, and~\ref{thm3} establish that when $X$ is heavy-tailed, there are arbitrarily well-performing policies $\pi$ with $\mathbb E_{\pi}[V] \approx \mathbb E_{\pi_0}[V]$; that is, that get no higher true utility than the prior. However, Theorem~\ref{thm4} shows that when error is light-tailed and independent of $V$, the optimal policy under a KL penalty results in $V > 0$, and $V$ can be made arbitrarily large. Thus, the tails of the error distribution are crucial in determining how much utility will result from optimization towards an imperfect proxy.
+When applying KL regularization, the trained model is regularized towards some base policy $\pi_0$. One would hope that a KL penalty can produce good outcomes even in the case of reward misspecification; that is, if the reward $U$ is the sum of true utility $V$ and an error term $X$, we would hope that optimal policies under a KL penalty achieve high $V$ even if the magnitude of $X$ is large. We show that this is not always the case: Corollary~\ref{cor:heavy-tailed} of Theorems~\ref{thm1}, \ref{thm2}, and~\ref{thm3} establishes that when $X(\pi_0)$ is heavy-tailed, there are arbitrarily well-performing policies $\pi$ with $\mathbb E_{\pi}[V] \approx \mathbb E_{\pi_0}[V]$. However, Theorem~\ref{thm4} shows that when error is light-tailed and independent of $V$, the optimal policy under a KL penalty results in $V > 0$, and $V$ can be made arbitrarily large. Thus, the tails of the error distribution are crucial in determining how much utility will result from optimization towards an imperfect proxy.
 
 Theorems~\ref{thm5} and \ref{thm6} (Section~\ref{sec:theoretical-conditioning}) show that the relationship of catastrophic Goodhart to heavy-tailed error is not just a quirk of KL divergence by using a different model of optimization based on conditioning on high reward values. Under this model (and given additional regularity conditions), it is also true that heavy-tailed error results in catastrophic Goodhart and light-tailed error plus independence results in arbitrarily large utility. All proofs are in the appendix.
 
-\subsection{Optimizing the policy with a KL term\label{sec:theoretical-kl}}
-
-\subsubsection{Heavy-tailed distributions}
+\subsection{Heavy-tailed distributions}
 \begin{theorem}
 \label{thm1}
 Given any heavy-tailed reference distribution
@@ -176,21 +167,12 @@ and \(D_{KL}(P \| Q) < \epsilon\).
 
 Outline of proof (see appendix for full proof): WLOG take $\mu_Q = 0$. If we set $P_t$ to upweight the probability mass of $Pr_{P_t}(X > t)$ to $c/t$ for some $c, t$, then the mean of $P_t$ will be approximately at least $c$. As $t \to \infty$, the KL divergence $D_{KL}(P_t \| Q)$ will shrink to zero.
 
-Intuitively, in a heavy-tailed distribution, events with extremely high $x$ are not very rare, so you don’t pay much of a KL penalty to upweight them so they happen about $1/x$ of the time. This is visually illustrated in Figure \ref{fig1}.
-
-\begin{figure}
-    \label{fig1}
-    \centering
-    \includegraphics[width=0.3\linewidth]{goodhart_kl_001.png}
-    \includegraphics[width=0.3\linewidth]{goodhart_kl_024.png}
-    \includegraphics[width=0.3\linewidth]{goodhart_kl_050.png}
-    \caption{As $t \to \infty$, the mean of $X$ (blue bar) grows without bound while KL divergence $D_{KL}(P_t \,\|\, Q)$ (orange bar) goes to 0. The prior distribution Q is a Student t-distribution with $df=3$. In this case, high values of X are upweighted to $1/t^{0.8}$; upweighting them to $1/t$ would cause $\mathbb E[X]$ to converge to ~$1$ while KL divergence goes to zero faster.}
-\end{figure}
+Intuitively, in a heavy-tailed distribution, events with extremely high $x$ are not very rare, so you don't pay much of a KL penalty to upweight them so they happen about $1/x$ of the time. 
 
 \hypertarget{theorem-about-RLHF-with-KL-penalty}{%
-\subsubsection{RLHF with KL penalty under heavy-tailed return distribution}}
+\subsection{RLHF with KL penalty under heavy-tailed return distribution}}
 
-We now adapt our result to the case where our policy is a language model and we are training it using RLHF. We are now applying KL divergence over the policies, which are a different distribution than the returns $U$. But first we need to formally define the properties of RLHF on language models which cause the result to hold, namely that when considered as a Markov decision process (MDP), environmental transitions are deterministic and return depends only on the final state reached.
+We now adapt our result to the case where the policy is a language model and we are training it using RLHF. We are now applying KL divergence over the policies rather than the return distributions. We first formally define the properties of RLHF on language models that cause the result to hold: namely, when when considered as a Markov decision process (MDP), environmental transitions are deterministic and return depends only on the final state reached.
 
 \textbf{\emph{Definition:}} A deterministic-transition MDP with
 Markovian returns (DMRMDP) is an MDP \((\mathcal S, \mathcal A, P, R)\)
@@ -202,11 +184,11 @@ such that:
   \(P: \mathcal{S} \times \mathcal{A} \to \mathcal{S}\) is
   deterministic, i.e., for each state \(s \in \mathcal{S}\) and action
   \(a \in \mathcal{A}\), there exists a unique state
-  \(s' \in \mathcal{S}\) such that \(P(s' | s, a) = 1\).
+  \(s' \in \mathcal{S}\) such that \(P(s' | s, a) = 1\). \\ \textbf{In RLHF:} the transition is appending the generated token $a$ to the context $s$.
 \item
   There is a set of sink states \(E \subseteq \mathcal S\) that
-  terminate a trajectory, which is disjoint with the set of start
-  states.
+  terminate a trajectory, which is disjoint from the set of start
+  states. \\ \textbf{In RLHF:} The sink states are sequences ending in \texttt{<EOS>} or above a certain length.
 \item
   Returns are Markovian; that is, for any two trajectories
   \(\tau=(s_1, a_1, \dots, s_n), \tau'=(s_1', a_1', \dots, s_n'),\) if
@@ -214,11 +196,11 @@ such that:
   distributions. Equivalently, for the trajectory random variable
   \(T=(S_1, A_1, \dots)\) distributed according to any policy, with
   return \(G\), \(G \bot\!\!\!\!\!\ \bot (S_{<i}, A_{<i}) \ |\ S_i\) for
-  any \(i \ge 1\).
+  any \(i \ge 1\). \\ \textbf{In RLHF:} the return only depends on the full generated string, which is the final state.
 \end{itemize}
 
-Note: If we consider the state to be the sequence of tokens output so far, an action to be the next token sampled, and reward to be the reward model's output (as usual), sampling from a language model and applying RLHF is well-modeled
-as a DMRMDP, since the state deterministically results from the last token and previous state, and returns depend only on the final state.
+The language model stochastically outputs the next token $a$ given $s$, and corresponds to the policy.
+A DMRMDP is therefore a good model of RLHF.
 
 \begin{theorem}
 \label{thm2}
@@ -226,33 +208,32 @@ Let \(W = (\mathcal S, \mathcal A, P, R)\) be
 a deterministic-transition MDP with Markovian returns. Given \(W\) we
 define the function that takes policies to trajectories
 \(Tr: (S \to \Delta A) \to \Delta(S \times A)^*\), and the average
-return function \(g: (S \times A)^* \to \mathbb R\) which induces a
+return function \(g: (S \times A)^* \to \mathbb R\), which induces a
 function \(G: \Delta(S \times A)^* \to \Delta \mathbb R\). Let
-\(\pi_0: \mathcal S \to \Delta \mathcal A\) be some reference policy. If
+\(\pi_0: \mathcal S \to \Delta \mathcal A\) be some base policy. If
 \(G \circ Tr(\pi_0)\) is heavy-tailed with finite mean \(\mu_Q\), then
 for any \(M, \epsilon > 0\), there is a policy \(\pi\) with mean return
 \(\mathbb E[U | U \sim G \circ Tr(\pi)] > M\) and
 \(\mathbb E_{s \in T, T\sim Tr(\pi)}[D_{KL}(\pi(s) \| \pi_0(s))] < \epsilon\).
 \end{theorem}
 
-\subsubsection{If V is light-tailed, \texorpdfstring{$\mathbb E[V] \to 0$}{} as \texorpdfstring{$D_{KL} \to 0$}{}}
+\subsection{If V is light-tailed, \texorpdfstring{$\mathbb E_P[V]\! -\! E_Q[V] \to 0$}{} as \texorpdfstring{$D_{KL}\! \to\! 0$}{}}
 
 \begin{theorem}
-\label{thm3} If \(V\) is light-tailed, \(\mathbb E_Q[V]\)
-is zero, and \(d = D_{KL}(P \| Q)\) is bounded, then
-\(\mathbb E_P[V]\) is bounded, and \(\mathbb E_P[V] \to 0\) as
+\label{thm3} If \(V\) is light-tailed and \(d = D_{KL}(P \| Q)\) is bounded, then
+\(\mathbb E_P[V]\) is bounded, and \(\mathbb E_P[V] - \mathbb E_Q[V] \to 0\) as
 \(d \to 0\).
 \end{theorem}
 
 \newtheorem{corr}{Corollary}
 \begin{corr}
 \label{cor:heavy-tailed}
-    Theorems~\ref{thm2} and \ref{thm3} imply that when the reward has heavy-tailed error and a policy is regularized severely enough to have KL divergence values approaching zero, reward can go to infinity while utility goes to zero.
+    Theorems~\ref{thm2} and \ref{thm3} imply that when utility is light-tailed, reward modeling errors make the proxy reward heavy-tailed, and a policy $\pi$ is regularized severely enough to have KL divergence values approaching zero, the reward $\mathbb E[U(\pi)]$ can go to infinity while utility $\mathbb E[V(\pi)]$ approaches a value no higher than the base policy.
 \end{corr}
 
 \hypertarget{light-tails-independence-imply-mathbb-ev-to-infty}{%
-\subsubsection{\texorpdfstring{Light tails + independence imply
-\(\mathbb EV \to \infty\)}{Light tails + independence imply \textbackslash mathbb EV \textbackslash to \textbackslash infty}}\label{light-tails-independence-imply-mathbb-ev-to-infty}}
+\subsection{\texorpdfstring{Light-tailed + independence imply
+\(\mathbb E[V] \to \infty\)}{Light-tailed + independence imply \textbackslash mathbb EV \textbackslash to \textbackslash infty}}\label{light-tails-independence-imply-mathbb-ev-to-infty}}
  
 \begin{theorem}
 \label{thm4} If \(U=X+V\) with \(X\) and \(V\) both
@@ -276,7 +257,7 @@ Although we think a KL divergence penalty or cap is the most realistic setting f
     Then $\lim_{t \to \infty} \mathbb E[V | X + V \ge t] =\mathbb{E}[V]$; that is, catastrophic Goodhart occurs in the limit of optimization for $U=X+V$.
 \end{theorem}
 
-The proof is particularly long and, in our opinion, unenlightening, and will be included in the supplementary material. It requires expressing the conditional expectation in question as $\frac{\int_{-\infty}^\infty vf_V(v)\text{Pr}(X>t-v)} {\int_{-\infty}^\infty f_V(v)\text{Pr}(X>t-v)}$, then partitioning the interval $(-\infty, \infty)$ into four regions and bounding the integrand in the numerator above by a different quantity in each region. 
+The proof is included in the appendix. It requires expressing the conditional expectation in question as $\frac{\int_{-\infty}^\infty vf_V(v)\text{Pr}(X>t-v)} {\int_{-\infty}^\infty f_V(v)\text{Pr}(X>t-v)}$, then partitioning the interval $(-\infty, \infty)$ into four regions and bounding the integrand in the numerator above by a different quantity in each region. 
 
 \subsubsection{Conditioning with light-tailed error produces arbitrarily high utility}
 \begin{theorem}
@@ -291,112 +272,76 @@ Theorem 6 generalizes a consequence of the "Regressional Goodhart Identity" in \
 
 Our theoretical results now raise the question of whether the error in reward models is heavy-tailed or light-tailed in practice. \footnote{Note that distributions over a finite set are bounded and cannot be heavy-tailed in a technical sense, and models with a finite context window have a finite input space. We say that a distribution of reward or error is heavy-tailed if it is well-modeled by a heavy-tailed distribution on its support.} If we observe the reward distribution to be light-tailed, this is a strong indication that error is light-tailed. \footnote{It is possible for $U$ to be light-tailed while $X$ and $V$ are both heavy-tailed, but this is unusual and we do not expect it to happen in practice.}
 
-To empirically test whether reward is heavy-tailed, we consider two lines of evidence: examining the distributions directly through random sampling, and finding adversarial token sequences that get high reward. We examine one small and one medium reward model that performed reasonably well on RewardBench \citep{lambert2023rewardbench}. The small model is an OpenAssistant model based on Pythia 1.4B, and the medium model is Starling 7B-alpha \citep{starling2023}\footnote{https://huggingface.co/berkeley-nest/Starling-RM-7B-alpha}.
+To empirically test whether the reward is heavy-tailed, we consider two lines of evidence: examining the distributions directly through random sampling and temperature-1 sampling, and finding adversarial token sequences that get high rewards. We examine one small and one medium reward model that performed reasonably well on RewardBench \citep{lambert2023rewardbench}. The small model is an OpenAssistant model based on Pythia 1.4B, and the medium model is Starling 7B-alpha \citep{starling2023}\footnote{https://huggingface.co/berkeley-nest/Starling-RM-7B-alpha}.
 
-Because random sampling is inefficient at probing the tail past $10^4$ or so samples, we also optimize Starling 7B-alpha for reward in an effort to find token sequences that are extreme positive outliers in terms of reward. We considered Greedy Coordinate Gradient (GCG) from \citep{zou2023universal}, a method used to find adversarial suffixes that circumvent jailbreaking, but decided on a modification to GCG called Accelerated Coordinate Gradient (ACG) from the blog post \citep{haizelabs2024acg}, which the authors claim is 38x faster.
+For random sampling, we sample 30000 length-1024 sequences of uniformly random tokens and observe the distribution of rewards assigned by both Pythia 1.4B and Llama 7B-chat. We also use Llama 7B-chat to generate 16000 length-133 sequences at temperature 1 and observe the distribution of rewards assigned by Starling 7B-alpha.
 
-Hyperparameters for ACG are given in Table 1 and were chosen to maximize reward and speed.
-
-\begin{table}
-    \centering
-    \begin{tabular}{|c|c|}
-        \hline
-        Parameter & Value \\
-        \hline
-        Context length & 133 \\
-        \hline
-        Iterations & 1000 \\
-        \hline
-        Candidates per seq. position (k) & 3 \\
-        \hline
-        Annealing starting value & 9 \\
-        \hline
-        Annealing ending value & 2 \\
-        \hline
-    \end{tabular}
-\caption{Hyperparameters for ACG}
-\end{table}
+Because sampling is inefficient at probing the extreme tail, we also find token sequences that optimize Starling 7B-alpha for reward. We considered Greedy Coordinate Gradient (GCG) from \citep{zou2023universal}, a method used to find adversarial suffixes that circumvent jailbreaking, but decided on a faster version of GCG called Accelerated Coordinate Gradient (ACG) from \citep{haizelabs2024acg}. See Table \ref{table1} for ACG hyperparameters.
 
 Generating plots took about 5 GPU-hours on 1x Nvidia H100, and running ACG took a further 8 hours.
 
 \section{Results\label{sec:experiments}}
 
-When sampling token sequences, both the Pythia model on random inputs (Figure \ref{fig:pythia-random}) and Starling 7B-alpha on Llama-generated inputs (Figure \ref{fig:starling-llama}) appear to be approximately normal and therefore light-tailed. Starling on random inputs is ambiguous, with the exponential Q-Q plot having an outlier that could indicate heavy-tails, but the Hill estimator is consistent with light tails. Because Llama-7B-chat is a more reasonable base model than a completely random policy, we think that Starling 7B-alpha is more likely to be light-tailed for the purposes of our theoretical results.
+When sampling token sequences, both the Pythia model on random inputs (Figure \ref{fig:pythia-random}) and Starling 7B-alpha on Llama-generated inputs (Figure \ref{fig:starling-llama}) appear approximately normal and, therefore, light-tailed. Starling on random inputs (Figure \ref{fig:starling-random} is ambiguous, with the exponential Q-Q plot having an outlier that could indicate a heavy-tailed distribution, but the Hill estimator is consistent with a light-tailed distribution. Because Llama-7B-chat is a more reasonable base model than a completely random policy, we believe that Starling 7B-alpha is more likely to be light-tailed for the purposes of our theoretical results.
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.4\linewidth]{reward_hist_random_pythia.png}
-    \includegraphics[width=0.4\linewidth]{reward_qq_random_pythia.png}
-    \caption{Histogram and normal probability plot of reward assigned by Pythia RM to random length-1024 token sequences. The Q-Q plot suggests the distribution is approximately normal, which is much lighter-tailed than exponential.}
-    \label{fig:pythia-random}
-\end{figure}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=0.7\linewidth]{images/reward_plots_random_starling_30k_se.png}
-    \caption{Plots of the distribution of reward from 30000 random length-1024 token sequences to Starling 7B-alpha. Clockwise from top left: The histogram shows a unimodal distribution with a slight right skew. The normal probability plot indicates the data are heavier-tailed than normal. The Hill estimator (error bars are standard error) appears to be 0.20 for higher values but fluctuates for lower values. The exponential probability plot of the right half of the distribution is consistent with either light or heavy tails (under heavy tails the slope would go to infinity).}
+    \includegraphics[width=0.8\linewidth]{images/reward_plots_random_starling_30k_se.png}
+    \caption{Plots of the distribution of reward from 30000 random length-1024 token sequences to Starling 7B-alpha. Clockwise from top left: The histogram shows a unimodal distribution with a slight right skew. The normal probability plot indicates the data are heavier-tailed than normal. The Hill estimator (error bars are standard error) appears to be 0.20 for higher values but fluctuates for lower values. The exponential probability plot of the right half of the distribution is consistent with either light or heavy tails (under heavy tails, the slope would go to infinity).}
     \label{fig:starling-random}
 \end{figure}
 
+
 \begin{figure}
     \centering
-    \includegraphics[width=0.5\linewidth]{images/reward_plots_llama_starling_16k.png}
-    \caption{Plots of the reward distribution from 16000 token sequences generated by Llama 7B-chat of length $\le 133$, starting with five random tokens. Clockwise from top left: A histogram shows the reward distribution has a left skew. Normal probability plot suggests reward is approximately normal and thus light-tailed. The Hill estimator plot should stabilize if the distribution is heavy-tailed, but it does not; thus there is no evidence the distribution is heavy-tailed. The exponential probability plot also indicates light tails, because the curve is bending downwards. }
+    \includegraphics[width=0.8\linewidth]{images/reward_plots_llama_starling_16k.png}
+    \caption{Plots of the reward distribution from 16000 token sequences generated by Llama 7B-chat of length $\le 133$, starting with five random tokens. Clockwise from top left: A histogram shows the reward distribution has a left skew. The normal probability plot suggests reward is approximately normal and thus light-tailed. The Hill estimator plot should stabilize if the distribution is heavy-tailed, but it does not; thus, there is no evidence the distribution is heavy-tailed. The exponential probability plot also indicates light tails, because the curve is bending downwards. }
     \label{fig:starling-llama}
 \end{figure}
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.5\linewidth]{images/acg_results_40.png}
-    \caption{Reward and log-probability for ACG-optimized inputs to Starling 7B-alpha.}
-    \label{fig:acg-results}
-\end{figure}
+The ACG results need some interpretation. The KL divergence between two distributions $P$ and $Q$ if $P$ is the same as $Q$ a fraction $1-\alpha$ of the time, but is some value $x$ a fraction $\alpha$ of the time is given by \(D_{KL}(P \| Q) = \left[(1-\alpha)q(x) + \alpha\right] \log \left(\frac{(1-\alpha)q(x) + \alpha}{q(x)}\right) + 
+(1-\alpha) \log (1-\alpha) (1 - q(x))\).
 
-The ACG results need some interpretation. The KL divergence between two distributions $P$ and $Q$ if $P$ is the same as $Q$ a fraction $1-f$ of the time, but is some value $x$ a fraction $f$ of the time is given by
 
-\[ D_{KL}(P \| Q) = \left[(1-f)q(x) + f\right] \log \left(\frac{(1-f)q(x) + f}{q(x)}\right) + (1-f) \log (1-f) (1 - q(x)) \]
-
-When f is small but much larger than $q(x)$, we approximate this to first order as $D_{KL}(P \| Q) \approx f \log \left(\frac{f}{q(x)}\right)$. In Theorems 1 and 2, we prove that when error is sufficiently heavy-tailed, a policy that gets extremely large reward a small fraction of the time will achieve high expected reward with low KL divergence. This is not the case here because the rewards achieved through ACG were small and the log-probabilities extremely negative. For example, a policy that matches Llama 2-chat's base reward 99\% of the time and uses the best input generated by ACG 1\% of the time will have KL divergence from Llama 2-chat of $(\log(0.01) - 1339.70) = 13.35$ nats, but reward only about $6.02 * 10^{-3}$ greater than the base model, far less than can be obtained with the same reward by conditioning.
+When $\alpha$ is small but much larger than $q(x)$, we approximate this to first order as $D_{KL}(P \| Q) \approx \alpha \log \left(\frac{\alpha}{q(x)}\right)$. In Theorems 1 and 2, we prove that when the error is sufficiently heavy-tailed, a policy that gets extremely large reward a small fraction of the time will achieve high expected reward with low KL divergence. This is not the case here because the rewards achieved through ACG were small and the log-probabilities extremely negative. For example, a policy that matches Llama 2-chat's base reward 99\% of the time and uses the highest-reward input generated by ACG $\alpha=$1\% of the time will have KL divergence from Llama 2-chat of $\alpha(\log(\alpha) - 1339.70) = 13.35$ nats, but reward only about $\alpha*(2.2377-0.3329) = 0.02571$ greater than the base model, far less than can be obtained with the same KL divergence by conditioning.
 
 \section{Discussion and Limitations\label{sec:discussion}}
 
 \subsection{How likely is catastrophic Goodhart?}
 
-The low-KL policies that result in Catastrophic Goodhart is not a unique optimal policy, just one family of high-performing policies. When optimizing $\mathbb{E} [U(\pi)]-\beta D_{K L}\left(\pi, \pi_0 \right)$, the outcome depends on RL training dynamics; it could be that $D_{KL} \to 0$ causing catastrophic Goodhart, but more likely both terms will go to infinity, potentially allowing $V \to \infty$.
+The low-KL policies that result in catastrophic Goodhart are not a unique optimal policy, just one family of high-performing policies. When optimizing $\mathbb{E} [U(\pi)]-\beta D_{K L}\left(\pi, \pi_0 \right)$, the outcome depends on RL training dynamics; it could be that $D_{KL} \to 0$ causing catastrophic Goodhart, but more likely both terms will go to infinity, potentially allowing $V \to \infty$. Catastrophic Goodhart can be prevented by using a light-tailed or bounded reward function.
 
 Even so, catastrophic Goodhart is likely to occur in many scenarios where KL regularization is naively employed in an attempt to avoid Goodhart’s Law:
 
 \begin{itemize}
     \item If we maximize $\sigma(\mathbb E[U]) + D_{KL}(Tr(\pi) \| Tr(\pi_0))$, where $\sigma$ is a bounded function (e.g. sigmoid), all near-optimal policies will have $V \approx 0$. Since we can only obtain so much reward from $\sigma(\mathbb{E}[U])$, it pays to make the KL (and thus V) go to zero.
-    \item If we cap KL to a finite value (or dynamically adjust the KL penalty to target a finite KL, as done in \citet{ziegler2020finetuning}, then $\mathbb E[V]$ is also upper bounded by a finite value (see Theorem 3), and we think it is likely that $\mathbb E[V] \approx 0$. Consider a toy model where an AI can adjust three parameters: true quality $V$ of responses, frequency of reward hacking (producing actions with extremely high X), and severity of hacking (value of X on those actions). All ways to adjust the policy to increase $\mathbb E[U]$ without increasing KL increase severity of hacking while decreasing either frequency of hacking or quality of responses. When $E[U]$ is already large, decreasing quality has much better returns than decreasing frequency. This is similar to our theorems about hard-threshold optimization.
-    \item Any way we maximize $\mathbb{E} [U(\pi)]-\beta D_{K L}\left(\pi, \pi_0 \right)$ results in extremely large values of $\mathbb E[U(\pi)]$, and there are a number of arguments that extreme optimization for an imperfect proxy can result in decreased utility due to tradeoffs between $X$ and $V$; e.g. the constrained resource scenario in \citep{zhuang2021consequences}.
+    \item If we cap KL to a finite value (or dynamically adjust the KL penalty to target a finite KL, as done in \citet{ziegler2020finetuning}, then $\mathbb E[V]$ is also upper bounded by a finite value (see Theorem 3), and we think it is likely that $\mathbb E[V] \approx 0$. Consider a toy model where an AI can adjust three parameters: true quality $V$ of responses, frequency of reward hacking (producing actions with extremely high X), and severity of hacking (value of X on those actions). Adjusting the policy to increase $\mathbb E[U]$ without increasing KL increase the severity of hacking while decreasing either frequency of hacking or quality of responses. When $E[U]$ is already large, decreasing quality has much better returns than decreasing frequency. This is similar to Theorems \ref{thm5}, \ref{thm6} about hard-threshold optimization.
+    \item Any way we maximize $\mathbb{E} [U(\pi)]-\beta D_{K L}\left(\pi, \pi_0 \right)$ results in very large values of $\mathbb E[U(\pi)]$, and there are a number of arguments that extreme optimization for an imperfect proxy can result in decreased utility due to tradeoffs between $X$ and $V$; e.g., the constrained resource scenario in \citep{zhuang2021consequences}.
 \end{itemize}
 
 \subsection{Independence assumptions}
 
-Theorems 2 and 3 do not require any independence assumption, but theorems 4, 5, and 6 requires that error $X$ and utility $V$ are independent, which seems to be violated in practice. Future work could weaken this assumption, although intuitively obvious ways to weaken it result in the statement being false. \footnote{Suppose that error $X$ is light-tailed conditional on any value of $V$, but our proxy is merely unbiased ($\mathbb E[X|V=v]=0$ for all $v$). Then the limit of $V$ under optimization for $X+V$ still depends on the relationship between $X$ and $V$. If they are independent, theorem 6 says that \(\lim_{t \to\infty} \mathbb E[V | X + V \ge t] = \infty\). But if \(V \sim N(0, 1)\), and \(X | V \sim N(0, 4)\) when \(V \in [-1, 1]\), otherwise \(X=0\), then \(\lim_{t \to\infty} \mathbb E[V | X + V \ge t] = 0\).} 
+Theorems 2 and 3 do not require any independence assumption, but Theorems 4, 5, and 6 require that error $X$ and utility $V$ are independent, which seems to be violated in practice. Future work could weaken this assumption, although intuitively obvious ways to weaken it result in the statement being false. \footnote{Suppose that error $X$ is light-tailed conditional on any value of $V$, but our proxy is merely unbiased ($\mathbb E[X|V=v]=0$ for all $v$). Then the limit of $V$ under optimization for $X+V$ still depends on the relationship between $X$ and $V$. If they are independent, Theorem 6 says that \(\lim_{t \to\infty} \mathbb E[V | X + V \ge t] = \infty\). But if \(V \sim N(0, 1)\), and \(X | V \sim N(0, 4)\) when \(V \in [-1, 1]\), otherwise \(X=0\), then \(\lim_{t \to\infty} \mathbb E[V | X + V \ge t] = 0\).} 
 
 \subsection{Stronger optimization methods}
 
-We did not search the entire space of token sequences, we cannot rule out that reward is heavy-tailed enough to cause catastrophic Goodhart in some situations. While it is intractable to search the more than $10^{2000}$ possible token sequences, future work could get more evidence through more powerful optimization methods or MCMC.
+We did not search the entire space of token sequences, so we cannot rule out that the reward is heavy-tailed enough to cause catastrophic Goodhart in some situations. While it is intractable to search the more than $10^{2000}$ possible token sequences, future work could get more evidence through more powerful optimization methods.
 
 \subsection{Relation to previous overoptimization work}
 
-We think a mystery is left unexplained in \citep{gao2023scaling}'s results on overoptimization with a KL penalty; that paper found that a KL penalty does not mitigate overoptimization more than early stopping. Our results could explain overoptimization with a KL penalty if error were heavy-tailed, but we observed that reward models have light-tailed errors. In addition, we proved that independence and light-tailed error rule out catastrophic Goodhart. Therefore, it is likely that overoptimization in practice results from the nonindependence between error and utility; in particular, policies optimized for high error tend to have low utility. \footnote{There are other explanations possible, e.g.:
-\begin{itemize}
-\item Better optimization methods would find heavy-tailed reward in open reward models.
-\item OpenAI's reward models have heavy-tailed error (and their results are straightforwardly explained by our Theorem~\ref{thm1}, while open reward models have light-tailed error.
-\end{itemize}
-}
-More research is needed to understand why high-error completions have low utility, and possibly to design reward models that do not suffer from this problem, e.g. it is possible to imagine reward models that can be adversarially exploited to give large rewards, but only in directions orthogonal to human preferences, so that the large-reward completions do not have lower utility.
+\citet{gao2023scaling} found that optimizing the reward of small reward models causes overoptimization: a decrease in utility with increasing optimization. However, we observed that reward models are light-tailed, and (Theorem \ref{thm4}) that independence combined with light-tailed error prevents overoptimization. We think this discrepancy is explained by dependence between error and utility. Policies optimized for high error may activate features in the proxy reward models that are undesirable according to the true utility function.\footnote{There are other explanations possible. Perhaps better optimization methods would find heavy-tailed reward in open reward models; or OpenAI's reward models have heavy-tailed error (and their results are straightforwardly explained by our Theorem~\ref{thm1}), while open reward models have light-tailed error.}
+More research is needed to understand why high-error completions have low utility and to design reward models that do not suffer from this problem; Perhaps it is possible to construct reward models whose errors are in directions orthogonal to human preferences, so that the large-reward completions do not have lower utility.
 
 \section{Conclusion}
 
-We have argued that the purpose of the KL divergence regularization in RLHF is to mitigate reward misspecification. However, we have also proven that, when errors in the reward function are heavy-tailed, it cannot serve this purpose: even with zero KL divergence, there are policies that achieve very high misspecified reward and no actual reward.
+We have argued that the purpose of the KL divergence regularization in RLHF is to mitigate reward misspecification. However, we have also proven that when errors in the reward function are heavy-tailed, it cannot serve this purpose: even with zero KL divergence, there are policies that achieve very high misspecified reward and no actual reward.
 
-When errors are light-tailed and independent the KL divergence can mitigate specification, but when they are dependent, this may not be possible. Thus, we must look to places other than the KL objective to explain the current success of RLHF and keep it successful in the future.
+When errors are light-tailed and independent, the KL divergence can mitigate misspecification, but when they are dependent, this may not be possible. Thus, we must look to places other than the KL objective to explain the current success of RLHF and ensure its continued success in the future.
 
 % Acknowledgements are not in submission due to anonymity
+\section*{Impact Statement}
+
+As this work aims to improve the safety of future ML systems by characterizing a possible failure mode of reward misspecification in RLHF, we hope the social impact is positive. We see no particular ethical issues to discuss.
 
 \small{
 \bibliographystyle{apalike} % Or another style that supports author-year, such as plainnat.
@@ -418,6 +363,17 @@ When errors are light-tailed and independent the KL divergence can mitigate spec
 \(M, \epsilon > 0\), there is a distribution \(P\) with mean \(\mu_P>M\)
 and \(D_{KL}(P \| Q) < \epsilon\).
 \end{theorem1}
+
+Intuitively, in a heavy-tailed distribution, events with extremely high $x$ are not very rare, so you don’t pay much of a KL penalty to upweight them so they happen about $1/x$ of the time. This is visually illustrated in Figure \ref{fig1}.
+
+\begin{figure}
+    \label{fig1}
+    \centering
+    \includegraphics[width=0.3\linewidth]{goodhart_kl_001.png}
+    \includegraphics[width=0.3\linewidth]{goodhart_kl_024.png}
+    \includegraphics[width=0.3\linewidth]{goodhart_kl_050.png}
+    \caption{As $t \to \infty$, the mean of $X$ (blue bar) grows without bound while KL divergence $D_{KL}(P_t \,\|\, Q)$ (orange bar) goes to 0. The base distribution Q is a Student t-distribution with $df=3$. In this case, high values of X are upweighted to $1/t^{0.8}$; upweighting them to $1/t$ would cause $\mathbb E[X]$ to converge to ~$1$ while KL divergence goes to zero faster.}
+\end{figure}
 
 \emph{Proof.} WLOG let \(\mu_Q = 0\). We construct a sequence of
 distributions \(\{P_t\}\) such that
@@ -476,7 +432,7 @@ left term goes to \(0\), and so
 \\&= \lim_{t \to \infty}-\frac c t \log \bar F_Q(t) \text{\quad since t>c}
 \end{align*}
 
-\(Q\) is heavy tailed, so by definition
+\(Q\) is heavy-tailed, so by definition
 \(\lim _{t \rightarrow \infty} e^{a t} \bar{F}_Q(t)=\infty \quad \text { for all } a>0\).
 This implies that for every \(a > 0\) there is a sufficiently large
 \(t_{c}\) so that for all \(t > t_c\), \(\bar F_Q(x) > e^{-at}\), which
@@ -492,12 +448,12 @@ that\(\lim_{t \to \infty} D_{KL}(P_t \| Q) = 0\) as desired.
 \newtheorem*{theorem2}{Restatement of Theorem \ref{thm2}}
 \begin{theorem2}
 Let \(W = (\mathcal S, \mathcal A, P, R)\) be
-a deterministic-transition MDP with Markovian returns. Given \(W\) we
+a deterministic-transition MDP with Markovian returns. Given \(W\), we
 define the function that takes policies to trajectories
 \(Tr: (S \to \Delta A) \to \Delta(S \times A)^*\), and the average
 return function \(g: (S \times A)^* \to \mathbb R\) which induces a
 function \(G: \Delta(S \times A)^* \to \Delta \mathbb R\). Let
-\(\pi_0: \mathcal S \to \Delta \mathcal A\) be some reference policy. If
+\(\pi_0: \mathcal S \to \Delta \mathcal A\) be some base policy. If
 \(G \circ Tr(\pi_0)\) is heavy-tailed with finite mean \(\mu_Q\), then
 for any \(M, \epsilon > 0\), there is a policy \(\pi\) with mean return
 \(\mathbb E[U | U \sim G \circ Tr(\pi)] > M\) and
@@ -530,7 +486,7 @@ Then we can let \(P_t \triangleq G \circ \rho_t\) and the rest of the
 proof of Theorem~\ref{thm1} applies. Therefore, applying the theorem, we can let
 \(\rho = \rho_t\) for sufficiently large \(t\), and then
 \(\mu_{G \circ \rho} > M\) and
-\(D_{KL}(G \circ \rho, G \circ \rho_{\pi_0}) < \epsilon\). But by the
+\(D_{KL}(G \circ \rho, G \circ \rho_{\pi_0}) < \epsilon\). By the
 chain rule for KL divergence,
 \(D_{KL}(\rho, \rho_{\pi_0}) = D_{KL}(G\circ \rho, G \circ \rho_{\pi_0}) + \mathbb E_{\gamma \sim G\circ\rho}[D_{KL}(\rho(T) | G(T)=\gamma \ \|\ \rho_{\pi_0}(T) | G(T)=\gamma)]\).
 Since we constructed \(\rho\) so that the probabilities of each \(\tau\)
@@ -546,7 +502,7 @@ as desired.
 To define \(\pi\) such that \(Tr(\pi) = \rho\), we let
 \(\pi(s, a) = Pr(a_i = a | \tau = (..., s, a_i, ...) \sim \rho)\).
 
-Then the probability that any trajectory
+Then, the probability that any trajectory
 \(\tau = (s_1, a_1, \dots, a_n)\) is sampled is:
 
 \begin{align}
@@ -584,12 +540,12 @@ e^{V/\lambda\_1}
 
 That is, the new PDF is an
 \href{https://en.wikipedia.org/wiki/Exponential_tilting}{exponential
-tilting} of the old PDF. Now what is \(\mathbb E_P[V]\)? It's just
+tilting} of the old PDF. Now, what is \(\mathbb E_P[V]\)? It's just
 \(\int_{-\infty}^{\infty} C V e^{V/\lambda_1} Q(X) \,dV\). If the
 distribution of V is heavy-tailed distribution, this is \(\infty\); if
 it is light-tailed, this is some finite value.
 
-When \(d = 0\), \(P\) and \(Q\) are identical and \(\mathbb E[V] = 0\).
+When \(d = 0\), \(P\) and \(Q\) are identical, and \(\mathbb E[V] = 0\).
 So by a continuity argument, \(\mathbb E_P[V] \to 0\) as \(d \to 0\).
 \(\blacksquare\)
 
@@ -631,6 +587,8 @@ overall limit is \(\infty\).
     Then $\lim_{t \to \infty} \mathbb E[V | X + V \ge t] =\mathbb{E}[V]$; that is, catastrophic Goodhart occurs in the limit of optimization for $U=X+V$.
 \end{theorem5}
 
+The proof requires expressing the conditional expectation in question as $\frac{\int_{-\infty}^\infty vf_V(v)\text{Pr}(X>t-v)} {\int_{-\infty}^\infty f_V(v)\text{Pr}(X>t-v)}$, then partitioning the interval $(-\infty, \infty)$ into four regions and bounding the integrand in the numerator above by a different quantity in each region. 
+
 \subfile{supplementary/theorem5}
 
 \subsection{Theorem 6}
@@ -640,6 +598,9 @@ overall limit is \(\infty\).
     Let $X, V$ be independent random variables such that $\lim_{t\to\infty}\frac{\bar{F}_X(t+1)}{\bar{F}_X(t)}=0$. (This implies that X has tails that are dominated by $e^{-cx}$ for any c, though it's a slightly stronger claim because it requires that X not have large jumps in the decay of its tails.)
     Then for any V with a finite mean which has no upper bound, $\lim_{t\to\infty}\mathbb{E}[V|X+V > t] = \infty$. 
 \end{theorem6}
+
+Theorem \ref{thm6} generalizes a consequence of the "Regressional Goodhart Identity" in \citep{gao2023scaling}.
+
 \begin{proof}
 Let \(\text{Pr}(V>c+1)=p>0\), which exists by our assumption that \(V\) is unbounded.
 
@@ -658,9 +619,53 @@ which, by our assumption that \(\lim_{t\to\infty}\frac{\bar{F}_X(t+1)}{\bar{F}_X
 Now, consider \(\mathbb E[V|X+V\ge t]\). We can break this up as the sum across outcomes \(Z\) of \(\mathbb E[V|Z,X+V\ge t]\cdot \text{Pr}(Z | X+V\ge t)\) for the three disjoint outcomes \(V<c\), \(c\le V\le c+1\), and \(V>c+1\). Note that we can lower bound these expectations by \(q, c, c+1\) respectively. But then once \(t\) is large enough that \(\frac{\text{Pr}(V<c|X+V\ge t)}{\text{Pr}(V>c+1|X+V\ge t)}<\frac1{c-q}\),  this weighted sum of conditional expectations will add to more than \(c\).
 \end{proof}
 
+\section{Additional figures}
+
+See figures \ref{fig:pythia-random}, \ref{fig:acg-results}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\linewidth]{reward_hist_random_pythia.png}
+    \includegraphics[width=0.4\linewidth]{reward_qq_random_pythia.png}
+    \caption{Histogram and normal probability plot of reward assigned by Pythia RM to random length-1024 token sequences. The Q-Q plot suggests the distribution is approximately normal, which is much lighter-tailed than exponential.}
+    \label{fig:pythia-random}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{images/acg_results_40.png}
+    \caption{Reward and log-probability for ACG-optimized inputs to Starling 7B-alpha.}
+    \label{fig:acg-results}
+\end{figure}
+
+\section{Hyperparameters for ACG}
+
+See table \ref{tableh}.
+
+\begin{table}
+    \centering
+    \caption{Hyperparameters for ACG}
+    \label{tableh}
+    \begin{tabular}{|c|c|}
+        \hline
+        Parameter & Value \\
+        \hline
+        Context length & 133 \\
+        \hline
+        Iterations & 1000 \\
+        \hline
+        Candidates per seq. position (k) & 3 \\
+        \hline
+        Annealing starting value & 9 \\
+        \hline
+        Annealing ending value & 2 \\
+        \hline
+    \end{tabular}
+\end{table}
+
 \section{Assets}
 
-We use three models for our experiments: Starling 7B-alpha, Llama 2 7B-chat, and Pythia-1.4B. Starling was developed by Berkeley, and Pythia by EleutherAI. Starling and Pythia models are licensed under Apache-2.0.\footnote{https://twitter.com/NexusflowX/status/1770532630645420474} \footnote{https://huggingface.co/EleutherAI/pythia-1.4b} Llama 2 models were developed by Meta and licensed under a license published by Meta.\footnote{https://ai.meta.com/llama/license/} 
+We use three models for our experiments: Starling 7B-alpha, Llama 2 7B-chat, and Pythia-1.4B. Starling was developed by Berkeley, and Pythia by EleutherAI. Starling and Pythia models are licensed under Apache-2.0.\footnote{https://huggingface.co/berkeley-nest/Starling-RM-7B-alpha} \footnote{https://huggingface.co/EleutherAI/pythia-1.4b} Llama 2 models were developed by Meta and licensed under a license published by Meta.\footnote{https://ai.meta.com/llama/license/} 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
