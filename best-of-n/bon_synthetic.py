@@ -68,11 +68,13 @@ for j, y_spec in enumerate(['normal', 'lognormal', ('t', 3), ('t', 5), 'levy']):
         make_subplot(axs[i][j], x_spec, y_spec)
         
 plt.show()
+plt.savefig('paper/images/bon_synthetic.png')
 
 # %%
 fig = plt.figure()
 make_subplot(fig.gca(), ('t', 10), ('t', 5), max_log_n=10)
 plt.show()
+plt.savefig('paper/images/bon_synthetic_t10_vs_t5.png')
 # %%
 
 # %%

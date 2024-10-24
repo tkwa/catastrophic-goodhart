@@ -279,7 +279,7 @@ To empirically test whether the reward is heavy-tailed, we consider two lines of
 
 For random sampling, we sample 30000 length-1024 sequences of uniformly random tokens and observe the distribution of rewards assigned by both Pythia 1.4B and Llama 7B-chat. We also use Llama 7B-chat to generate 16000 length-133 sequences at temperature 1 and observe the distribution of rewards assigned by Starling 7B-alpha.
 
-Because sampling is inefficient at probing the extreme tail, we also find token sequences that optimize Starling 7B-alpha for reward. We considered Greedy Coordinate Gradient (GCG) from \citep{zou2023universal}, a method used to find adversarial suffixes that circumvent jailbreaking, but decided on a faster version of GCG called Accelerated Coordinate Gradient (ACG) from \citep{haizelabs2024acg}. See Table \ref{table1} for ACG hyperparameters.
+Because sampling is inefficient at probing the extreme tail, we also find token sequences that optimize Starling 7B-alpha for reward. We considered Greedy Coordinate Gradient (GCG) from \citep{zou2023universal}, a method used to find adversarial suffixes that circumvent jailbreaking, but decided on a faster version of GCG called Accelerated Coordinate Gradient (ACG) from \citep{haizelabs2024acg}. See Table \ref{tableh} for ACG hyperparameters.
 
 Generating plots took about 5 GPU-hours on 1x Nvidia H100, and running ACG took a further 8 hours.
 
@@ -667,17 +667,30 @@ In response to reviewer feedback, we added two further experiments to demonstrat
 We created a synthetic experiment by letting reward $U = X + V$, where $X$ and $V$ are independent and sampled from different probability distributions, consistent with our theoretical assumptions. We vary $N$ from 1 to 65536, do 100 trials of taking the best-of-$N$ sample with highest $U$, and note whether $V$ goes towards 0 (overoptimization) or not.
 
 Possible distributions for V are normal and t-distribution with df=10.
-Possible distributions for X are normal, t with df=3, t with df=5, lognormal, and Levy. All of these are heavy-tailed except for normal.
+Possible distributions for X are normal, t with df=3, t with df=5, lognormal, and Levy. (All of these heavy-tailed except for the normal distribution.)
 V is scaled to a standard deviation of 2 and X has s.d. of 1 (except for the Levy distribution, which has infinite variance), representing that in ordinary regimes most of the variance comes from utility rather than error.
+
+The results are shown in Figure \ref{fig:best-of-n}. Briefly, the results are consistent with the asymptotic results in theorems \ref{thm5} and \ref{thm6}, showing that overoptimization
 
 \begin{figure}
     \centering
     \makebox[\textwidth][c]{\includegraphics[width=1.5\linewidth]{images/bon_synthetic.png}}
     \caption{When the error $X$ is normal and thus light-tailed, $V$ increases monotonically with $N$, consistent with our Theorem \ref{thm6}. \\
-    However, when both $X$ and $V$ are heavy-tailed, we see results consistent with theorem \ref{thm5}.
-    In $5$ of $6$ cases when $X$ is lognormal or student-t, $V$ first increases then starts to decline around $N=10^2$ or $10^3$. When $X$ is (t, df=5) and V is (t, df=10), $V$ instead peaks around $N=10^5$ (but declines afterwards). When X is Levy-distributed, utility never goes significantly above zero (optimization completely fails) because the Levy distribution is too heavy-tailed.}
-    \label{fig:pythia-random}
+    However, when both $X$ and $V$ are heavy-tailed, we see results consistent with theorem \ref{thm5}. In $5$ of $6$ cases when $X$ is lognormal or student-t, $V$ first increases then starts to decline around $N=10^2$ or $10^3$. When $X$ is (t, df=5) and V is (t, df=10), $V$ instead peaks around $N=10^5$ (but declines afterwards). When X is Levy-distributed, utility never goes significantly above zero (optimization completely fails) because the Levy distribution is too heavy-tailed.}
+    \label{fig:best-of-n}
 \end{figure}
+
+\subsection{PPO experiment}
+
+In this experiment, we examined PPO with artificially heavy-tailed rewards.
+
+OpenRLHF \citep{hu2024openrlhf} was used to train Pythia 1B with a reward model derived also from Pythia 1B, on the default OpenRLHF prompt dataset.
+We used the reward model to represent true utility, and a heavy-tailed error term based on the number of "the" tokens was added to get the proxy reward.
+The \texttt{kl\_target=0.5} option was used to dynamically adjust KL penalty, as we mention is done in \citet{ziegler2020finetuning}.
+Rewards were not clipped. (Reward clipping can be useful to prevent overoptimization, but is not always used in PPO.)
+Response length was limited to 256.
+
+Midway through training, the model generated 
 
 
 \subsection{Hyperparameters for ACG}
@@ -686,7 +699,6 @@ See table \ref{tableh}.
 
 \begin{table}
     \centering
-    \caption{Hyperparameters for ACG}
     \label{tableh}
     \begin{tabular}{|c|c|}
         \hline
@@ -702,7 +714,8 @@ See table \ref{tableh}.
         \hline
         Annealing ending value & 2 \\
         \hline
-    \end{tabular}
+    \end{tabular} \\
+    \caption{Hyperparameters for ACG}
 \end{table}
 
 \section{Assets}
