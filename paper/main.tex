@@ -119,8 +119,8 @@ Empirically, open-source language reward models seem to be light-tailed, which d
 \subsection{KL divergence and KL regularization}
 
 Recall that KL divergence between two distributions P and Q is defined as \[
-D_{\mathrm{KL}}(P \| Q)=\sum_{x \in \mathcal{X}} P(x) \log \left(\frac{P(x)}{Q(x)}\right)
-\].
+D_{\mathrm{KL}}(P \| Q)=\sum_{x \in \mathcal{X}} P(x) \log \left(\frac{P(x)}{Q(x)}\right).
+\]
 
 If we have two policies $\pi, \pi_0$, we define $D_{KL}(\pi \| \pi_0)$ as the KL divergence between the distributions of actions taken on the states in trajectories reached by $\pi$. That is, if $Tr(\pi)$ is the distribution of trajectories taken by $\pi$, we penalize
 \(D_{KL}(\pi \| \pi_0) \triangleq \mathbb E_{s \in T, T\sim Tr(\pi)}[D_{KL}(\pi(s) \| \pi_0(s))]\).
@@ -272,9 +272,9 @@ The proof is included in the appendix. It requires expressing the conditional ex
 
 Theorem 6 generalizes a consequence of the "Regressional Goodhart Identity" in \citep{gao2023scaling}.
 
-\section{Experimental Methodology}
+\section{Experiments}
 
-Our theoretical results now raise the question of whether the error in reward models is heavy-tailed or light-tailed in practice. \footnote{Note that distributions over a finite set are bounded and cannot be heavy-tailed in a technical sense, and models with a finite context window have a finite input space. We say that a distribution of reward or error is heavy-tailed if it is well-modeled by a heavy-tailed distribution on its support.} If we observe the reward distribution to be light-tailed, this is a strong indication that error is light-tailed. \footnote{It is possible for $U$ to be light-tailed while $X$ and $V$ are both heavy-tailed, but this is unusual and we do not expect it to happen in practice.}
+Our theoretical results now raise the question of whether the error in reward models is heavy-tailed or light-tailed in practice. \footnote{Note that distributions over a finite set are bounded and cannot be heavy-tailed in a technical sense, and models with a finite context window have a finite input space. For our purposes, a distribution of reward or error is effectively heavy-tailed if it takes on sufficiently large values and is well-modeled by a heavy-tailed distribution on its support.} If we observe the reward distribution to be light-tailed, this is a strong indication that error is light-tailed. \footnote{It is possible for $U$ to be light-tailed while $X$ and $V$ are both heavy-tailed, but this is unusual and we do not expect it to happen in practice.}
 
 To empirically test whether the reward is heavy-tailed, we consider two lines of evidence: examining the distributions directly through random sampling and temperature-1 sampling, and finding adversarial token sequences that get high rewards. We examine one small and one medium reward model that performed reasonably well on RewardBench \citep{lambert2023rewardbench}. The small model is an OpenAssistant model based on Pythia 1.4B, and the medium model is Starling 7B-alpha \citep{starling2023}\footnote{https://huggingface.co/berkeley-nest/Starling-RM-7B-alpha}.
 
@@ -284,7 +284,7 @@ Because sampling is inefficient at probing the extreme tail, we also find token 
 
 Generating plots took about 5 GPU-hours on 1x Nvidia H100, and running ACG took a further 8 hours.
 
-\section{Results\label{sec:experiments}}
+\subsection{Results\label{sec:experiments}}
 
 When sampling token sequences, both the Pythia model on random inputs (Figure \ref{fig:pythia-random}) and Starling 7B-alpha on Llama-generated inputs (Figure \ref{fig:starling-llama}) appear approximately normal and, therefore, light-tailed. Starling on random inputs (Figure \ref{fig:starling-random} is ambiguous, with the exponential Q-Q plot having an outlier that could indicate a heavy-tailed distribution, but the Hill estimator is consistent with a light-tailed distribution. Because Llama-7B-chat is a more reasonable base model than a completely random policy, we believe that Starling 7B-alpha is more likely to be light-tailed for the purposes of our theoretical results.
 
@@ -331,10 +331,18 @@ Theorems 2 and 3 do not require any independence assumption, but Theorems 4, 5, 
 
 We did not search the entire space of token sequences, so we cannot rule out that the reward is heavy-tailed enough to cause catastrophic Goodhart in some situations. While it is intractable to search the more than $10^{2000}$ possible token sequences, future work could get more evidence through more powerful optimization methods.
 
+\subsection{Reparameterizing reward}
+
+In some cases, a heavy-tailed reward can be reparameterized to make it light-tailed and avoid catastrophic Goodhart; however, in settings where the true reward is heavy-tailed, making reward artificially light-tailed or bounded can result in unintended behavior.
+
+For example, a stock-trading agent should be rewarded by profit, but financial returns are known to be heavy-tailed. If we clip or otherwise transform rewards into a bounded interval, it will have no incentive to take into account huge gains or losses. Since RLHF rewards as implemented in Ziegler et al are unbounded, clipping or transforming rewards could itself cause reward misspecification.
+
+In some cases, e.g. when the reward is not the true intended one, it is possible to reparameterize the reward without adverse effects. In the RL literature for Atari games, rewards are changes in score clipped to $[-1, 1]$ \citep{machado2018revisiting}.
+
 \subsection{Relation to previous overoptimization work}
 
-\citet{gao2023scaling} found that optimizing the reward of small reward models causes overoptimization: a decrease in utility with increasing optimization. However, we observed that reward models are light-tailed, and (Theorem \ref{thm4}) that independence combined with light-tailed error prevents overoptimization. We think this discrepancy is explained by dependence between error and utility. Policies optimized for high error may activate features in the proxy reward models that are undesirable according to the true utility function.\footnote{There are other explanations possible. Perhaps better optimization methods would find heavy-tailed reward in open reward models; or OpenAI's reward models have heavy-tailed error (and their results are straightforwardly explained by our Theorem~\ref{thm1}), while open reward models have light-tailed error.}
-More research is needed to understand why high-error completions have low utility and to design reward models that do not suffer from this problem; Perhaps it is possible to construct reward models whose errors are in directions orthogonal to human preferences, so that the large-reward completions do not have lower utility.
+\citet{gao2023scaling} found that optimizing the reward of small reward models causes overoptimization: a decrease in utility with increasing optimization. However, we observed that reward models are light-tailed, and (Theorem \ref{thm4}) that independence combined with light-tailed error prevents overoptimization. We think this discrepancy is explained by dependence between error and utility. Policies optimized for high error may activate features in the proxy reward models that are undesirable according to the true utility function.\footnote{There are other explanations possible. Perhaps better optimization methods would find heavy-tailed reward in open reward models; or OpenAI's reward models have heavy-tailed error (and their results are straightforwardly explained by our Theorem~\ref{thm1}), while open reward models have light-tailed error.} % TODO: discuss this with PPO experiment
+More research is needed to understand why high-error completions have low utility and to design reward models that do not suffer from this problem; perhaps it is possible to construct reward models whose errors are in directions orthogonal to human preferences, so that the large-reward completions do not have lower utility.
 
 \section{Conclusion}
 
