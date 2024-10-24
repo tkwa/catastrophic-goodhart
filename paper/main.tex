@@ -364,6 +364,14 @@ As this work aims to improve the safety of future ML systems by characterizing a
 
 \appendix
 
+% Reset figure numbering
+\renewcommand\thefigure{\thesection.\arabic{figure}}    
+\setcounter{figure}{0}
+
+% Reset table numbering
+\renewcommand\thetable{\thesection.\arabic{table}}
+\setcounter{table}{0}
+
 \hypertarget{appendix}{%
 \section{Proofs}\label{appendix}}
 
@@ -375,10 +383,10 @@ As this work aims to improve the safety of future ML systems by characterizing a
 and \(D_{KL}(P \| Q) < \epsilon\).
 \end{theorem1}
 
-Intuitively, in a heavy-tailed distribution, events with extremely high $x$ are not very rare, so you don’t pay much of a KL penalty to upweight them so they happen about $1/x$ of the time. This is visually illustrated in Figure \ref{fig1}.
+Intuitively, in a heavy-tailed distribution, events with extremely high $x$ are not very rare, so you don’t pay much of a KL penalty to upweight them so they happen about $1/x$ of the time. This is visually illustrated in Figure \ref{fig_thm1}.
 
 \begin{figure}
-    \label{fig1}
+    \label{fig_thm1}
     \centering
     \includegraphics[width=0.3\linewidth]{goodhart_kl_001.png}
     \includegraphics[width=0.3\linewidth]{goodhart_kl_024.png}
@@ -632,9 +640,12 @@ which, by our assumption that \(\lim_{t\to\infty}\frac{\bar{F}_X(t+1)}{\bar{F}_X
 Now, consider \(\mathbb E[V|X+V\ge t]\). We can break this up as the sum across outcomes \(Z\) of \(\mathbb E[V|Z,X+V\ge t]\cdot \text{Pr}(Z | X+V\ge t)\) for the three disjoint outcomes \(V<c\), \(c\le V\le c+1\), and \(V>c+1\). Note that we can lower bound these expectations by \(q, c, c+1\) respectively. But then once \(t\) is large enough that \(\frac{\text{Pr}(V<c|X+V\ge t)}{\text{Pr}(V>c+1|X+V\ge t)}<\frac1{c-q}\),  this weighted sum of conditional expectations will add to more than \(c\).
 \end{proof}
 
-\section{Additional figures}
+\setcounter{figure}{0}
+\setcounter{table}{0}
+\section{Additional experiments and figures}
 
-See figures \ref{fig:pythia-random}, \ref{fig:acg-results}.
+Figures \ref{fig:pythia-random}, \ref{fig:acg-results} relate to experiments mentioned in the main paper.
+In response to reviewer feedback, we added two further experiments to demonstrate the catastrophic Goodhart phenemonon with artificially heavy-tailed reward, one using best-of-N on synthetic distributions and one with PPO on Pythia 1B.
 
 \begin{figure}
     \centering
@@ -651,7 +662,25 @@ See figures \ref{fig:pythia-random}, \ref{fig:acg-results}.
     \label{fig:acg-results}
 \end{figure}
 
-\section{Hyperparameters for ACG}
+\subsection{Best-of-N experiment}
+
+We created a synthetic experiment by letting reward $U = X + V$, where $X$ and $V$ are independent and sampled from different probability distributions, consistent with our theoretical assumptions. We vary $N$ from 1 to 65536, do 100 trials of taking the best-of-$N$ sample with highest $U$, and note whether $V$ goes towards 0 (overoptimization) or not.
+
+Possible distributions for V are normal and t-distribution with df=10.
+Possible distributions for X are normal, t with df=3, t with df=5, lognormal, and Levy. All of these are heavy-tailed except for normal.
+V is scaled to a standard deviation of 2 and X has s.d. of 1 (except for the Levy distribution, which has infinite variance), representing that in ordinary regimes most of the variance comes from utility rather than error.
+
+\begin{figure}
+    \centering
+    \makebox[\textwidth][c]{\includegraphics[width=1.5\linewidth]{images/bon_synthetic.png}}
+    \caption{When the error $X$ is normal and thus light-tailed, $V$ increases monotonically with $N$, consistent with our Theorem \ref{thm6}. \\
+    However, when both $X$ and $V$ are heavy-tailed, we see results consistent with theorem \ref{thm5}.
+    In $5$ of $6$ cases when $X$ is lognormal or student-t, $V$ first increases then starts to decline around $N=10^2$ or $10^3$. When $X$ is (t, df=5) and V is (t, df=10), $V$ instead peaks around $N=10^5$ (but declines afterwards). When X is Levy-distributed, utility never goes significantly above zero (optimization completely fails) because the Levy distribution is too heavy-tailed.}
+    \label{fig:pythia-random}
+\end{figure}
+
+
+\subsection{Hyperparameters for ACG}
 
 See table \ref{tableh}.
 
