@@ -1,4 +1,4 @@
-\documentclass[../neurips_2024.tex]{subfiles}
+\documentclass[../main.tex]{subfiles}
 \graphicspath{{\subfix{../images/}}}
 
 % Language setting
@@ -34,10 +34,10 @@ In addition to the works cited in the main paper, we make reference to the textb
 
 \subsubsection{Proof sketch and intuitions}
 
- The conditional expectation \(\mathbb E[V | X + V > t]\) is given by \(\frac{\int_{-\infty}^\infty vf_V(v)\text{Pr}(X>t-v)} {\int_{-\infty}^\infty f_V(v)\text{Pr}(X>t-v)}\), \footnote{We'll generally omit \(dx\) and \(dv\) terms in the interests of compactness and laziness; the implied differentials should be pretty clear.}
+ The conditional expectation \(\mathbb E[V | X + V > t]\) is given by \(\frac{\int_{-\infty}^\infty vf_V(v)\text{Pr}(X>t-v)} {\int_{-\infty}^\infty f_V(v)\text{Pr}(X>t-v)}\), \footnote{We'll generally omit \(dx\) and \(dv\) terms in the interests of compactness and conciseness; the implied differentials should be pretty clear.}
  and we divide the integral in the numerator into 4 regions, showing that each region's effect on the conditional expectation of V is similar to that of the corresponding region in the unconditional expectation \(\mathbb E[V]\).
 
-The regions are defined in terms of a slow-growing function \(h(t):\mathbb R \to \mathbb R_{\ge 0}\) such that the fiddly bounds on different pieces of the proof work out. Roughly, we want it to go to infinity so that \(|V|\) is likely to be less than \(h(t)\) in the limit, but grow slowly enough that the shape of \(V\) 's distribution within the interval \([-h(t),h(t)]\) doesn't change much after conditioning.
+The regions are defined in terms of a slow-growing function \(h(t):\mathbb R \to \mathbb R_{\ge 0}\) such that the fiddly bounds on different pieces of the proof work out. Roughly, we want it to go to infinity so that \(|V|\) is likely to be less than \(h(t)\) in the limit, but grow slowly enough that the shape of \(V\)'s distribution within the interval \([-h(t),h(t)]\) doesn't change much after conditioning.
 
 In Table \ref{table1}, we abbreviate the condition \(X+V>t\) as \(c\).
 
@@ -90,12 +90,12 @@ Assume that
 \end{itemize}
 
 Formally, this means that \(\lim_{x\to\infty}\frac{\text{Pr}(X_1+X_2>x)}{\text{Pr}(X>x)} = 2\). 
-This happens roughly whenever \(X\) has tails that are heavier than \(e^{-cx}\) for any \(c\) and is reasonably well-behaved; counterexamples to the claim "long-tailed implies subexponential" exist, but they're nontrivial to exhibit.
+This occurs roughly whenever \(X\) has tails that are heavier than \(e^{-cx}\) for any \(c\) and is reasonably well-behaved; counterexamples to the claim "long-tailed implies subexponential" exist, but they're nontrivial to exhibit.
 Examples of subexponential distributions include log-normal distributions, anything that decays like a power law, the Pareto distribution,and distributions with tails asymptotic to \(e^{-x^a}\) for any \(0<a<1\).
 
 We require for \(V\) that its tail function is substantially lighter than X's, namely that \(\lim_{t\to\infty}\frac{t^p\bar F_V(t)}{\bar F_X(t)} = 0\) for some \(p > 1\). (This implies that \(\bar F_V(t) = O(\bar F_X(t) / t)\).)
 
-With all that out of the way, we can move on to the proof. 
+With these definitions and assumptions, we can move on to the proof. 
 
 The unnormalized PDF of \(V\) conditioned on \(X+V\ge t\) is given by \(f_V(v)\bar{F}_X(t-v)\). Its expectation is given by \(\frac{\int_{-\infty}^\infty vf_V(v)\bar{F}_X(t-v)} {\int_{-\infty}^\infty f_V(v)\bar{F}_X(t-v)}\).
 
@@ -165,7 +165,7 @@ We'll handle these case by case (they'll get monotonically trickier).
 
 Since \(Q(v)\) is monotonically increasing and \(Q(0)=1\), we know that in this interval \(|Q(v)-1| = 1-Q(v)\).
 
-So we have  \(\int_{-\infty}^{-h(t)}|v|\cdot f_V(v) \cdot |Q(v)-1| = \int_{-\infty}^{-h(t)}|v|f_V(v)(1-Q(v)) < \int_{-\infty}^{-h(t)}|v|f_V(v) < \epsilon\) as desired.
+So we have \(\int_{-\infty}^{-h(t)}|v|\cdot f_V(v) \cdot |Q(v)-1| = \int_{-\infty}^{-h(t)}|v|f_V(v)(1-Q(v)) < \int_{-\infty}^{-h(t)}|v|f_V(v) < \epsilon\) as desired.
 
 \paragraph{Region 2: \texorpdfstring{\((-h(t),h(t))\)}{}}
  By lemma 1(d), \(h\) is such that for sufficiently large \(t\), \(|Q(v)-1|<\frac\epsilon{\int_{-\infty}^\infty |v|f_V(v)}\) on the interval \([-h(t),h(t)]\). (Note that the value of this upper bound depends only on \(V\) and \(\epsilon\), not on \(t\) or \(h\).) So we have \(\int_{-h(t)}^{h(t)}|v|f_V(v)|Q(v)-1| < \frac{\epsilon}{\int_{-\infty}^\infty|v|f_V(v)}\int_{-h(t)}^{h(t)}|v|f_V(v) < \frac{\epsilon}{\int_{-\infty}^\infty|v|f_V(v)}\int_{-\infty}^\infty|v|f_V(v) = \epsilon\).
@@ -187,7 +187,7 @@ For the fourth part, we'd like to show that \(\int_{t-h(t)}^\infty vf_V(v)Q(v) \
 
 Since \(Q(v)=\frac{\bar F_X(t-v)}{\bar F_X(t)} < \frac 1{\bar F_X(t)}\), it would suffice to show \(\int_{t-h(t)}^\infty vf_V(v) = o(\bar F_X(t))\). But note that since \(\lim_{t\to\infty}\frac{\bar F_X(t-h(t))}{\bar F_X(t)} = 1\) by Lemma 1(c), this is equivalent to \(\int_{t-h(t)}^\infty vf_V(v) = o(\bar F_X(t-h(t)))\), which (by Lemma 1(b)) is equivalent to \(\int_t^\infty vf_V(v) = o(\bar F_X(t))\).
 
-Note that \(\int_{t}^\infty vf_V(v) = t\int_{t}^\infty f_V(v) + \int_{t}^\infty (v-t)f_V(v) = t\bar F_V(t)+\int_{t}^\infty \bar F_V(v)\), so it will suffice to show that both terms in this sumare \(o(\bar F_X(t))\). 
+Note that \(\int_{t}^\infty vf_V(v) = t\int_{t}^\infty f_V(v) + \int_{t}^\infty (v-t)f_V(v) = t\bar F_V(t)+\int_{t}^\infty \bar F_V(v)\), so it will suffice to show that both terms in this sum are \(o(\bar F_X(t))\). 
 
 The first term \(t \bar F_V(t)\) is \(o(\bar F_X(t))\) because we assumed \(\lim_{t\to\infty} \frac{t^p\bar F_V(t)}{\bar F_X(t)}=0\) for some \(p>1\).
 
