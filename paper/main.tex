@@ -174,8 +174,8 @@ Outline of proof (see appendix for full proof): WLOG take $\mu_Q = 0$. If we set
 Intuitively, in a heavy-tailed distribution, events with extremely high $x$ are not very rare, so you don't pay much of a KL penalty to upweight them so they happen about $1/x$ of the time. 
 
 \begin{theorem}
-    \label{thm2} However, if \(V\) is light-tailed and \(d = D_{KL}(P \| Q)\) is bounded, then
-    \(\mathbb E_P[V]\) is bounded, and \(\mathbb E_P[V] - \mathbb E_Q[V] \to 0\) as
+    \label{thm2} However, if the distribution $Q$ is light-tailed and \(d = D_{KL}(P \| Q)\) is bounded, then
+    \(\mathbb \mu_P \) is bounded, and \(\mu_P - \mu_Q \to 0\) as
     \(d \to 0\).
     \end{theorem}
 
@@ -226,8 +226,6 @@ for any \(M, \epsilon > 0\), there is a policy \(\pi\) with mean return
 \(\mathbb E[U | U \sim G \circ Tr(\pi)] > M\) and
 \(\mathbb E_{s \in T, T\sim Tr(\pi)}[D_{KL}(\pi(s) \| \pi_0(s))] < \epsilon\).
 \end{theorem}
-
-\subsection{If V is light-tailed, \texorpdfstring{$\mathbb E_P[V]\! -\! E_Q[V] \to 0$}{} as \texorpdfstring{$D_{KL}\! \to\! 0$}{}}
 
 
 \newtheorem{corr}{Corollary}
