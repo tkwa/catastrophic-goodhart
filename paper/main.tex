@@ -712,7 +712,7 @@ The \texttt{kl\_target=0.5} option was used to dynamically adjust KL penalty, as
 Rewards were not clipped. (Reward clipping can be useful to prevent overoptimization, but is not always used in PPO.)
 Response length was limited to 256.
 
-Results are in figure \ref{fig:ppo}. Midway through training, the model generates reasonable completions with a higher number of "the" tokens than usual, but as training progresses the model starts to generate completions with a very high number of "the" tokens while proxy reward reaches values $>10^9$, demonstrating that the basic pattern of catastrophic Goodhart can occur in RLHF under conditions of heavy-tailed error.
+Two example completions are in figure \ref{fig:ppo}. Midway through training, the model generates reasonable completions with a higher number of "the" tokens than usual, but as training progresses the model starts to generate completions with a very high number of "the" tokens while proxy reward reaches values $>10^9$, demonstrating that the basic pattern of catastrophic Goodhart can occur in RLHF under conditions of heavy-tailed error.
 
 The result depends on hyperparameters (e.g. reward clipping would prevent this), so our observation should not be taken as a claim that catastrophic Goodhart is inevitable in all RLHF settings with heavy-tailed error.
 
