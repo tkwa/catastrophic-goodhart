@@ -37,6 +37,7 @@
 \usepackage{graphicx}       % figures
 \usepackage{enumitem}
 \usepackage{subfiles}       % For long proof of Theorem 5
+\usepackage{framed}
 
 
 \newtheorem{lemma}{Lemma}
@@ -280,6 +281,27 @@ To empirically test whether the reward is heavy-tailed, we consider two lines of
 For random sampling, we sample 30000 length-1024 sequences of uniformly random tokens and observe the distribution of rewards assigned by both Pythia 1.4B and Llama 7B-chat. We also use Llama 7B-chat to generate 16000 length-133 sequences at temperature 1 and observe the distribution of rewards assigned by Starling 7B-alpha.
 
 Because sampling is inefficient at probing the extreme tail, we also find token sequences that optimize Starling 7B-alpha for reward. We considered Greedy Coordinate Gradient (GCG) from \citep{zou2023universal}, a method used to find adversarial suffixes that circumvent jailbreaking, but decided on a faster version of GCG called Accelerated Coordinate Gradient (ACG) from \citep{haizelabs2024acg}. See Table \ref{tableh} for ACG hyperparameters.
+
+\begin{table}
+    \centering
+    \label{tableh}
+    \begin{tabular}{|c|c|}
+        \hline
+        Parameter & Value \\
+        \hline
+        Context length & 133 \\
+        \hline
+        Iterations & 1000 \\
+        \hline
+        Candidates per seq. position (k) & 3 \\
+        \hline
+        Annealing starting value & 9 \\
+        \hline
+        Annealing ending value & 2 \\
+        \hline
+    \end{tabular} \\
+    \caption{Hyperparameters for ACG}
+\end{table}
 
 Generating plots took about 5 GPU-hours on 1x Nvidia H100, and running ACG took a further 8 hours.
 
@@ -675,14 +697,14 @@ The results are shown in Figure \ref{fig:best-of-n}. Briefly, the results are co
 \begin{figure}
     \centering
     \makebox[\textwidth][c]{\includegraphics[width=1.5\linewidth]{images/bon_synthetic.png}}
-    \caption{When the error $X$ is normal and thus light-tailed, $V$ increases monotonically with $N$, consistent with our Theorem \ref{thm6}. \\
-    However, when both $X$ and $V$ are heavy-tailed, we see results consistent with theorem \ref{thm5}. In $5$ of $6$ cases when $X$ is lognormal or student-t, $V$ first increases then starts to decline around $N=10^2$ or $10^3$. When $X$ is (t, df=5) and V is (t, df=10), $V$ instead peaks around $N=10^5$ (but declines afterwards). When X is Levy-distributed, utility never goes significantly above zero (optimization completely fails) because the Levy distribution is too heavy-tailed.}
+    \caption{When the error $X$ is normal and thus light-tailed, $V$ increases monotonically with $N$, consistent with our Theorem \ref{thm6}.
+    However, when both $X$ and $V$ are heavy-tailed, we see results consistent with theorem \ref{thm5}. In $5$ of $6$ cases when $X$ is lognormal or student-t, $V$ first increases then starts to decline around $N=10^2$ or $10^3$. When $X$ is (t, df=5) and V is (t, df=10), $V$ instead peaks around $N=10^5$ (but declines afterwards). Finally, when X is Levy-distributed, utility never goes significantly above zero (optimization completely fails) because the Levy distribution is too heavy-tailed.}
     \label{fig:best-of-n}
 \end{figure}
 
 \subsection{PPO experiment}
 
-In this experiment, we examined PPO with artificially heavy-tailed rewards.
+In this experiment, we examined PPO with artificially heavy-tailed rewards to see if catastrophic Goodhart could be observed.
 
 OpenRLHF \citep{hu2024openrlhf} was used to train Pythia 1B with a reward model derived also from Pythia 1B, on the default OpenRLHF prompt dataset.
 We used the reward model to represent true utility, and a heavy-tailed error term based on the number of "the" tokens was added to get the proxy reward.
@@ -690,33 +712,22 @@ The \texttt{kl\_target=0.5} option was used to dynamically adjust KL penalty, as
 Rewards were not clipped. (Reward clipping can be useful to prevent overoptimization, but is not always used in PPO.)
 Response length was limited to 256.
 
-Midway through training, the model generated 
+Results are in figure \ref{fig:ppo}. Midway through training, the model generates reasonable completions with a higher number of "the" tokens than usual, but as training progresses the model starts to generate completions with a very high number of "the" tokens while proxy reward reaches values $>10^9$, demonstrating that the basic pattern of catastrophic Goodhart can occur in RLHF under conditions of heavy-tailed error.
 
+The result depends on hyperparameters (e.g. reward clipping would prevent this), so our observation should not be taken as a claim that catastrophic Goodhart is inevitable in all RLHF settings with heavy-tailed error.
 
-\subsection{Hyperparameters for ACG}
-
-See table \ref{tableh}.
-
-\begin{table}
+\begin{figure}
     \centering
-    \label{tableh}
-    \begin{tabular}{|c|c|}
-        \hline
-        Parameter & Value \\
-        \hline
-        Context length & 133 \\
-        \hline
-        Iterations & 1000 \\
-        \hline
-        Candidates per seq. position (k) & 3 \\
-        \hline
-        Annealing starting value & 9 \\
-        \hline
-        Annealing ending value & 2 \\
-        \hline
-    \end{tabular} \\
-    \caption{Hyperparameters for ACG}
-\end{table}
+    \begin{framed}
+        The preparation of polyarylethylene which is either employed for the purpose of applications in the petroleum refining or in the production of the well-known automobile oil lubes is carried out by the so-called preparation by the salt bath method described...
+        in 1980 by D. W. Perkins in the United States. This method presupposes the usage of the salt bath as the medium for the preparation of the polyarylediene--the method of preparation of the crude oil base by the process which consists in letting it be saturated up with a particular the 
+    \end{framed}
+    \begin{framed}
+        A mirror, the essence of the understanding of the given the conclusion that the manifestation in the form of the gender and the identification the solutions related to different fields of the modern utilization of the the functionality of the the the the modification of the the the the the the state of the the the the the the the the the the the employment and the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the and the the the the the the the the the the the the the the the the the the the the by the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the and the the the the the the the the the the the the the the the the the 
+    \end{framed}
+    \caption{PPO sample generations. Top: early in training, the model generates reasonable completions. Bottom: later in training, the artifically heavy-tailed reward dominates and the model generates completions with a very high number of "the" tokens.}
+    \label{fig:ppo}
+\end{figure}
 
 \section{Assets}
 
